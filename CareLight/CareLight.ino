@@ -20,11 +20,11 @@
 //#define DEBUG_ESP_PORT Serial
 
 ESP8266WiFiMulti WiFiMulti;
-std::unique_ptr<StreamString> _buffer;
+String payload;
 
 
 void setup() {
-  //buffer.reserve(2500);  
+  payload.reserve(2500);  
   Serial.begin(115200);
   // Serial.setDebugOutput(true);
 
@@ -44,7 +44,7 @@ void setup() {
 
 String exractParam(String authReq, const String& param, const char delimit) {
   int _begin = authReq.indexOf(param);
-  Serial.println(param);
+  Serial.print(param);
   if (_begin == -1) 
   { 
     Serial.println("Not found");    
@@ -68,7 +68,7 @@ void loop() {
     if (https.begin(*client, F("https://carelink.minimed.eu/patient/sso/login?country=pl&lang=en"))) {
       https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
       //https.setTimeout(60000);
-      https.setReuse(false);
+      https.setReuse(true);
       Serial.print("[HTTPS] GET");
       int httpCode = https.GET();
       
@@ -78,13 +78,16 @@ void loop() {
         Serial.println(httpCode);
         
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+          https.getString();
+          //Serial.println(payload.c_str());
+          
           const String& location = https.getLocation();
           Serial.println(F("Extract sessionID and sessionData:"));
           Serial.println(location.c_str());
           String sessionId = exractParam(location.c_str(), F("sessionID="), '&');
           String sessionData = exractParam(location.c_str(), F("sessionData="), '&');
           Serial.printf("SessionID:   %s\n", sessionId.c_str());
-          Serial.printf("SessionData: %s\n\n", sessionData.c_str());         
+          Serial.printf("SessionData: %s\n\n", sessionData.c_str());       
           https.end();
 
           Serial.println("Submit login:");
@@ -97,7 +100,7 @@ void loop() {
             //https.addHeader("Accept-Encoding", "identity");
             //https.addHeader("sec-ch-ua", "\"Google Chrome\";v=\"87\", \" Not;A Brand\";v=\"99\", \"Chromium\";v=\"87\"");
             https.addHeader(F("Content-Type"), F("application/x-www-form-urlencoded"));
-            https.setReuse(false);/////////////////////////////////////
+            https.setReuse(true);/////////////////////////////////////
             https.setUserAgent(F("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.70"));                    
             String content = String("sessionID=" + sessionId + "&sessionData=" + sessionData + "&locale=en&action=login&username=sylwiadk&password=Mamba2018&actionButton=Log+in");
             Serial.printf("[HTTPS] POST: %s\n", content.c_str());
@@ -109,14 +112,7 @@ void loop() {
               // file found at server
               if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) 
               {
-                Serial.println("All cookies:");
-                Serial.println(https.cookies());
-                
-                for(int j=0; j<https.cookies(); j++){
-                  Serial.println(https.cookie(j));
-                }                  
-
-                String payload = https.getString();
+                payload = https.getString();
                 Serial.println(payload.c_str());
 
                 String consentUrl         = exractParam(payload.c_str(), "form action=\"", '"');
@@ -125,7 +121,7 @@ void loop() {
                 Serial.printf("consentUrl:         %s\n", consentUrl.c_str());
                 Serial.printf("consentSessionData: %s\n", consentSessionData.c_str());
                 Serial.printf("ConsentSessionId:   %s\n", consentSessionId.c_str());
-                Serial.printf("SessionID:          %s\n", sessionId.c_str());
+                Serial.printf("SessionID:          %s\n", sessionId.c_str());                
                 https.end();
 
                 Serial.println("Submit consent:");
@@ -136,7 +132,7 @@ void loop() {
                   https.addHeader(F("Accept-Language"), F("en-US,en;q=0.9"));
                   https.addHeader(F("Content-Type"), F("application/x-www-form-urlencoded"));
                   https.setReuse(true);
-                  https.setUserAgent(F("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0"));                    
+                  //https.setUserAgent(F("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0"));                    
                   content = String("action=consent&sessionID=" + consentSessionId + "&sessionData=" + consentSessionData + "&response_type=code&response_mode=query");
                   Serial.printf("[HTTPS] POST: %s\n", content.c_str());
                   httpCode = https.POST(content.c_str());
@@ -146,15 +142,18 @@ void loop() {
 
                     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) 
                     {
+                      https.getString();
+                      //Serial.println(payload.c_str());
+
                       Serial.println("All cookies:");
                       Serial.println(https.cookies());
-                      
                       for(int j=0; j<https.cookies(); j++){
                         Serial.println(https.cookie(j));
-                      }       
+                      } 
+                      https.end();                      
                     }
                   }
-                }
+                }                  
               }
             }  
             else
