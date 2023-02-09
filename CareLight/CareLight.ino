@@ -1,11 +1,11 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiMulti.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 
-WiFiMulti WiFiMulti;
 WiFiClientSecure *client;
+HTTPClient https;
 String payload;
 CookieJar cookies;
 String sessionId;
@@ -17,24 +17,17 @@ String consentSessionData;
 String content;
 int httpCode;
 
+unsigned long previousMillis;
+unsigned long currentMillis;
+unsigned long period = 300000;
+
 void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println();
   Serial.println();
   Serial.println("Starting...");
-  //Serial.flush();
-  //delay(3000);
-  
-  //WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("baku2", "12837455");
-
-  Serial.print("Waiting for WiFi to connect...");
-  while ((WiFiMulti.run() != WL_CONNECTED)) {
-    Serial.print(".");
-    delay(1000);
-  }
-  Serial.println(" connected");
+  https.setCookieJar(&cookies);
 }
 
 String exractParam(const String& authReq, const String& param, const char delimit) {
@@ -47,23 +40,23 @@ String exractParam(const String& authReq, const String& param, const char delimi
   return result;
 }
 
-bool GetLoginPage(WiFiClientSecure *client, HTTPClient& https) {
-  Serial.println("Get login page:");
+bool GetLoginPage() {
+  //Serial.println("Get login page:");
   if (https.begin(*client, F("https://carelink.minimed.eu/patient/sso/login?country=pl&lang=en"))) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     https.setTimeout(60000);
     https.setReuse(true);
 
     httpCode = https.GET();
-    Serial.println(httpCode);
+    //Serial.println(httpCode);
     
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
       https.getString();
       const String& location = https.getLocation();
       sessionId = exractParam(location.c_str(), F("sessionID="), '&');
       sessionData = exractParam(location.c_str(), F("sessionData="), '&');
-      Serial.printf("SessionID:   %s\n", sessionId.c_str());
-      Serial.printf("SessionData: %s\n\n", sessionData.c_str());       
+      //Serial.printf("SessionID:   %s\n", sessionId.c_str());
+      //Serial.printf("SessionData: %s\n\n", sessionData.c_str());       
       https.end();
       return true;
     } else {
@@ -76,7 +69,7 @@ bool GetLoginPage(WiFiClientSecure *client, HTTPClient& https) {
   return false;
 }
 
-bool SubmitLogin (WiFiClientSecure *client, HTTPClient& https) {
+bool SubmitLogin () {
   Serial.println("Submit login:");        
   if (https.begin(*client, F("https://mdtlogin.medtronic.com/mmcl/auth/oauth/v2/authorize/login?locale=en&country=pl"))) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -114,7 +107,7 @@ bool SubmitLogin (WiFiClientSecure *client, HTTPClient& https) {
   return false;
 }
 
-bool SubmitConsent(WiFiClientSecure *client, HTTPClient& https) {
+bool SubmitConsent() {
   Serial.println("Submit consent:");
   if (https.begin(*client, consentUrl.c_str())) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -150,21 +143,21 @@ bool SubmitConsent(WiFiClientSecure *client, HTTPClient& https) {
   return false;
 }
 
-bool Login(WiFiClientSecure *client, HTTPClient& https) {
-  bool success = GetLoginPage(client, https);
+bool Login() {
+  bool success = GetLoginPage();
 
   if (success == true) {
-    success = SubmitLogin(client, https);
+    success = SubmitLogin();
   }
 
   if (success == true) {
-    success = SubmitConsent(client, https);
+    success = SubmitConsent();
   }
 
   return success;
 }
 
-String GetData(WiFiClientSecure *client, HTTPClient& https) {
+bool GetData() {
   Serial.println("Get data:");
   if (https.begin(*client, "https://clcloud.minimed.eu/connect/v2/display/message")) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -177,47 +170,106 @@ String GetData(WiFiClientSecure *client, HTTPClient& https) {
     https.setReuse(true);
     https.setAuthorizationType("Bearer");
     https.setAuthorization(authToken.c_str());
-    Serial.println("Auth cookie:");
-    Serial.println(authToken.c_str());
+    /////Serial.println("Auth cookie:");
+    /////Serial.println(authToken.c_str());
     content = "{\"username\":\"sylwiadk\",\"role\":\"patient\"}";
-    Serial.printf("Content: %s\n", content.c_str());
+    /////Serial.printf("Content: %s\n", content.c_str());
     httpCode = https.POST(content.c_str());
-    Serial.println(httpCode);
+    /////Serial.println(httpCode);
 
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {             
-      payload = https.getString();//                    "lastSGTrend":"
-      String lastTrend = exractParam(payload, "\"lastSGTrend\":\"", '"');
-      String lastSg = exractParam(payload, "\"lastSG\":{\"sg\":", ','); 
+////////////////////////////////////////////////////////////
+      WiFiClient * stream = https.getStreamPtr();
+      StaticJsonDocument<64> filter;
+      filter["lastSGTrend"] = true;
+      filter["lastSG"]["sg"] = true;
 
-      Serial.print("Trend: ");
-      Serial.println(lastTrend.c_str());
-      Serial.print("SG: ");
-      Serial.println(lastSg.c_str());
-      https.end();
-      return lastSg;                
+      StaticJsonDocument<256> doc;
+
+      DeserializationError error = deserializeJson(doc, *stream, DeserializationOption::Filter(filter));
+
+      const char* lastSGTrend;
+      int lastSG_sg;
+
+      if (error) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        lastSGTrend = "";
+      } else {  
+        lastSGTrend = doc["lastSGTrend"]; // "NONE"
+        lastSG_sg = doc["lastSG"]["sg"]; // 172        
+      }
+
+            
+
+
+////////////////////////////////////////////////////////////////////
+      //String lastTrend = exractParam(payload, "\"lastSGTrend\":\"", '"');
+      //String lastSg = exractParam(payload, "\"lastSG\":{\"sg\":", ','); 
+
+      Serial.print("  Trend: ");
+      Serial.println(lastSGTrend);
+      Serial.print("  SG: ");
+      Serial.println(lastSG_sg);
+
+      
+      https.end();/////////////
+      return true;                
     }
   }
   https.end();
-  return "";
+  return false;
+}
+
+void connectToWiFi()
+{
+  int TryCount = 0;
+  while ( WiFi.status() != WL_CONNECTED )
+  {
+    TryCount++;
+    WiFi.disconnect();
+    WiFi.begin( "baku2", "12837455" );
+    vTaskDelay( 4000 );
+    if ( TryCount == 10 )
+    {
+      ESP.restart();
+    }
+  }
+
+} // void connectToWiFi()
+
+void PeriodicGetData() {
+  bool success = GetData();
+  
+  if (success != true) {
+    success = Login();
+    if (success == true) {
+      success = GetData();
+    }
+  }
 }
 
 void loop() {
   if (!client) {
+    Serial.println("No WiFi client");
     client = new WiFiClientSecure();
     client->setInsecure();
+    Serial.println("WiFi client started");    
   }
-  
+
+  if ( !(WiFi.status() == WL_CONNECTED) ) {
+    Serial.println("No WiFi connection");
+    connectToWiFi();
+    Serial.println("WiFi client connected");
+    previousMillis = millis();
+    https.clearAllCookies();
+    PeriodicGetData();
+  }  
+
+  currentMillis = millis();
+  if (currentMillis - previousMillis >= period)  //true until the period elapses
   {
-    HTTPClient https;
-    https.setCookieJar(&cookies);
-    
-    bool success = Login(client, https);
-
-    if (success == true) {
-      GetData(client, https);
-    }
+    PeriodicGetData();
+    previousMillis = currentMillis;
   }
-
-  Serial.println("Wait 10s before next round...");
-  delay(5000000);
 }
