@@ -7,10 +7,15 @@
 
 #define NUM_LEDS 64
 #define DATA_PIN 13
-#define BRIGHTNESS 60
+#define BRIGHTNESS 30
+#define POLL_INTERVAL 300000
+
+unsigned long previousMillis;
+unsigned long currentMillis;
 
 WiFiClientSecure *client;
 HTTPClient https;
+int httpCode;
 String payload;
 CookieJar cookies;
 String sessionId;
@@ -20,37 +25,252 @@ String consentUrl;
 String consentSessionId;
 String consentSessionData;
 String content;
-byte sg;
+
+String currentTrend;
+int currentSg;
+String lastTrend;
+int lastSg;
+
 CRGB leds[NUM_LEDS];
-CRGBPalette16 myPal;
+CRGB ledOff = CHSV( 0, 0, 0);
+CRGB ledRed = CHSV( 0, 255, 255);
+CRGB ledYellow = CHSV( 58, 255, 255);
+CRGB ledBlue = CHSV( 164, 255, 255);
+CRGB ledColors[8] = {
+  CHSV( 200, 255, 255), //violet
+  CHSV( 164, 255, 255), //blue
+  CHSV( 128, 255, 255), //cyan
+  CHSV( 100, 255, 255), //green
+  CHSV( 70,  255, 255), //olive-green
+  CHSV( 32,  255, 255), //orange
+  CHSV( 12,  255, 255), //dark orange
+  CHSV( 0,   255, 255)  //red
+};
 
-int httpCode;
+byte maskUp[NUM_LEDS] = {1,1,1,1,1,1,1,1,
+                         1,1,1,1,1,1,1,1,
+                         0,0,0,0,0,0,1,1,
+                         0,0,0,0,0,0,1,1,
+                         0,0,0,0,0,0,1,1,
+                         0,0,0,0,0,0,1,1,
+                         0,0,0,0,0,0,1,1,
+                         0,0,0,0,0,0,1,1,};
 
-unsigned long previousMillis;
-unsigned long currentMillis;
-unsigned long period = 300000;
+byte maskDoubleUp[NUM_LEDS] = {1,1,1,1,1,1,1,1,
+                               1,1,1,1,1,1,1,1,
+                               0,0,0,0,0,0,1,1,
+                               1,1,1,1,1,0,1,1,
+                               1,1,1,1,1,0,1,1,
+                               0,0,0,1,1,0,1,1,
+                               0,0,0,1,1,0,1,1,
+                               0,0,0,1,1,0,1,1,};
 
-DEFINE_GRADIENT_PALETTE( heatmap_gp ) {
-  0,     0,  0,  0,   //<40 black
-  1,   122,  1,254,   //40  violet
- 23,   255,  0,  0,   //70  red
- 24,   255,255,  0,   //71  yellow-green
- 51,     1,251,255,   //110 turquoise
- 72,     2,222,255,   //140 blue turquoise
-100,   255,255,  0,   //180 yellow
-150,   255,  0,  0,   //250 red
-255,   255,  0,255 }; //400 red
+byte maskTripleUp[NUM_LEDS] = {1,1,1,1,1,1,1,1,
+                               1,1,1,1,1,1,1,1,
+                               0,0,0,0,0,0,1,1,
+                               1,1,1,1,1,0,1,1,
+                               1,1,1,1,1,0,1,1,
+                               0,0,0,1,1,0,1,1,
+                               1,1,0,1,1,0,1,1,
+                               1,1,0,1,1,0,1,1,};
+
+byte maskStable[NUM_LEDS] = {0,0,0,0,0,0,1,1,
+                             0,0,0,0,0,0,1,1,
+                             0,0,0,0,0,0,1,1,
+                             0,0,0,0,0,0,1,1,
+                             0,0,0,0,0,0,1,1,
+                             0,0,0,0,0,0,1,1,
+                             1,1,1,1,1,1,1,1,
+                             1,1,1,1,1,1,1,1,};
+
+byte maskDown[NUM_LEDS] = {1,1,0,0,0,0,0,0,
+                           1,1,0,0,0,0,0,0,
+                           1,1,0,0,0,0,0,0,
+                           1,1,0,0,0,0,0,0,
+                           1,1,0,0,0,0,0,0,
+                           1,1,0,0,0,0,0,0,
+                           1,1,1,1,1,1,1,1,
+                           1,1,1,1,1,1,1,1,};
+
+byte maskDoubleDown[NUM_LEDS] = {1,1,0,1,1,0,0,0,
+                                 1,1,0,1,1,0,0,0,
+                                 1,1,0,1,1,0,0,0,
+                                 1,1,0,1,1,1,1,1,
+                                 1,1,0,1,1,1,1,1,
+                                 1,1,0,0,0,0,0,0,
+                                 1,1,1,1,1,1,1,1,
+                                 1,1,1,1,1,1,1,1,};
+
+byte maskTripleDown[NUM_LEDS] = {1,1,0,1,1,0,1,1,
+                                 1,1,0,1,1,0,1,1,
+                                 1,1,0,1,1,0,0,0,
+                                 1,1,0,1,1,1,1,1,
+                                 1,1,0,1,1,1,1,1,
+                                 1,1,0,0,0,0,0,0,
+                                 1,1,1,1,1,1,1,1,
+                                 1,1,1,1,1,1,1,1,};
+
+byte maskError[NUM_LEDS] = {0,0,0,0,0,0,1,1,
+                            0,0,0,0,0,1,1,1,
+                            0,0,0,0,1,1,1,0,
+                            0,0,0,1,1,1,0,0,
+                            0,0,0,1,1,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            1,1,0,0,0,0,0,0,
+                            1,1,0,0,0,0,0,0,};
+
+byte maskLow[NUM_LEDS] = {1,0,0,0,0,0,1,1,
+                          1,0,0,0,0,1,1,1,
+                          1,0,0,0,1,1,1,0,
+                          1,0,0,0,1,1,0,0,
+                          1,0,1,1,0,0,0,0,
+                          1,0,1,1,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          1,1,1,1,1,1,1,1,};
+
+byte maskHi[NUM_LEDS] = {1,1,1,1,1,1,1,1,
+                         0,0,0,0,0,0,0,1,
+                         0,0,0,0,1,1,0,1,
+                         0,0,0,1,1,1,0,1,
+                         0,0,1,1,1,0,0,1,
+                         0,0,1,1,0,0,0,1,
+                         1,1,0,0,0,0,0,1,
+                         1,1,0,0,0,0,0,1,};
+
+byte maskEmpty[NUM_LEDS] = {0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,
+                            0,0,0,0,0,0,0,0,};
 
 void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println();
   Serial.println();
-  myPal = heatmap_gp;
-  FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS).setCorrection( TypicalSMD5050 );
+  FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
   Serial.println("Starting...");
   https.setCookieJar(&cookies);
+  DisplayFullScale();
+}
+
+void DisplayRainbow() {
+  for (int i=0; i<NUM_LEDS; i++) {
+    leds[i] = CHSV( (i/64.0) * 255, 255, 255); 
+  }
+  FastLED.show();
+}
+
+void DisplayFullScale() {
+  for (int i=0; i<NUM_LEDS; i+=8) {
+    for (int j=0; j<8; j++) {
+        leds[i+j] = ledColors[j]; 
+    }
+  }
+  FastLED.show();
+}
+
+void DisplayError(CRGB color) {
+  for (int i=0; i<NUM_LEDS; i++) {
+    if (maskError[i] == 1) {
+      leds[i] = color; 
+    } else {
+      leds[i] = ledOff;
+    }
+  }
+  FastLED.show();
+}
+
+void DisplayArrow(byte* mask, CRGB color) {
+  for (int i=0; i<NUM_LEDS; i++) {
+    if (mask[i] == 1) {
+      leds[i] = color;
+    } else {
+      leds[i] = ledOff;
+    }
+  }
+  FastLED.show();
+}
+
+void DisplayHi (CRGB color) {
+  for (int i=0; i<NUM_LEDS; i++) {
+    if (maskHi[i] == 1) {
+      leds[i] = color;
+    } else {
+      leds[i] = ledOff;
+    }
+  }
+  FastLED.show();
+}
+
+void DisplayLow(CRGB color) {
+  for (int i=0; i<NUM_LEDS; i++) {
+    if (maskLow[i] == 1){
+      leds[i] = color;
+    } else {
+      leds[i] = ledOff;
+    }
+  }
+  FastLED.show();
+}
+
+CRGB GetColorFromSg(int sg) {
+  CRGB color;
+  switch (sg) {
+    case 40 ... 54:
+      color = ledColors[0];
+      break;
+    case 55 ... 69:
+      color = ledColors[1];
+      break;
+    case 70 ... 99:
+      color = ledColors[2];
+      break;
+    case 100 ... 139:
+      color = ledColors[3];
+      break;
+    case 140 ... 179:
+      color = ledColors[4];
+      break;
+    case 180 ... 209:
+      color = ledColors[5];
+      break;
+    case 210 ... 249:
+      color = ledColors[6];
+      break;
+    case 250 ... 400:
+      color = ledColors[7];
+      break;
+    default: 
+      color = ledOff;
+      break;
+  }
+  return color;
+}
+
+byte* GetArrowFromTrend(const String& trend) {
+  String trendString = String(trend);
+  if (trendString.equals("UP_TRIPLE")) {
+    return maskTripleUp;
+  } else if (trendString.equals("UP_DOUBLE")) {
+    return maskDoubleUp;
+  } else if (trendString.equals("UP")) {
+    return maskUp;
+  } else if (trendString.equals("NONE")) {
+    return maskStable;
+  } else if (trendString.equals("DOWN")) {
+    return maskDown;
+  } else if (trendString.equals("DOWN_DOUBLE")) {
+    return maskDoubleDown;
+  } else if (trendString.equals("DOWN_TRIPLE")) {
+    return maskTripleDown;
+  } else {
+    return maskEmpty;
+  } 
 }
 
 String exractParam(const String& authReq, const String& param, const char delimit) {
@@ -156,6 +376,8 @@ bool SubmitConsent() {
           authToken = cookies[i].value;
           Serial.println("Auth cookie:");
           Serial.println(authToken.c_str());
+          Serial.println();
+          Serial.println();
         }
       }
       https.end();
@@ -212,17 +434,17 @@ bool GetData() {
 
       DeserializationError error = deserializeJson(doc, *stream, DeserializationOption::Filter(filter));
 
-      const char* lastSGTrend;
-      int lastSG_sg;
-
+      const char* trend;
       if (error) {
         Serial.print("deserializeJson() failed: ");
         Serial.println(error.c_str());
-        lastSGTrend = "";
+        trend = "";
+        lastSg = 0;        
       } else {  
-        lastSGTrend = doc["lastSGTrend"]; // "NONE"
-        lastSG_sg = doc["lastSG"]["sg"]; // 172        
+        trend = doc["lastSGTrend"]; // "NONE"
+        lastSg = doc["lastSG"]["sg"]; // 172        
       }
+      lastTrend = String(trend);
 /////////////////////////////////////////////////////////////////
       //Serial.print("[");
       //int len = https.getSize();
@@ -252,20 +474,12 @@ bool GetData() {
 
 
 ////////////////////////////////////////////////////////////////////
-      ////String lastTrend = exractParam(payload, "\"lastSGTrend\":\"", '"');
-      ////String lastSg = exractParam(payload, "\"lastSG\":{\"sg\":", ','); 
 
       Serial.print("Trend: ");
-      Serial.print(lastSGTrend);
+      Serial.print(lastTrend);
       Serial.print("  SG: ");
-      Serial.print(lastSG_sg);
-      sg = byte(lastSG_sg * 0.702777 - 26.111111); // Scale to 1-255
-      Serial.print("  Scaled: ");
-      Serial.println(sg);
-      for (int i=0; i<NUM_LEDS; i++) {
-        leds[i] = ColorFromPalette( myPal, sg);
-      }
-      FastLED.show();
+      Serial.println(lastSg);
+
       https.end();/////////////
       return true;                
     }
@@ -292,14 +506,24 @@ void connectToWiFi()
 } // void connectToWiFi()
 
 void PeriodicGetData() {
-  bool success = GetData();
+  bool success = GetData();  // Try get data
   
   if (success != true) {    
-    success = Login();
-    if (success == true) {
-      success = GetData();
+    success = Login();       // If failed - do Login
+    if (success != true) {
+      DisplayError(ledRed);  // If login failed - error
+      return;
+    } else {
+      success = GetData();   // Retry get data
+      if (success != true) {
+        DisplayError(ledRed);// If failed again - error
+        return;
+      }
     }
   }
+
+  DisplayArrow(GetArrowFromTrend(lastTrend), GetColorFromSg(lastSg));
+  
 }
 
 void loop() {
@@ -319,8 +543,7 @@ void loop() {
   }  
 
   currentMillis = millis();
-  if (currentMillis - previousMillis >= period)  //true until the period elapses
-  {
+  if (currentMillis - previousMillis >= POLL_INTERVAL) {
     PeriodicGetData();
     previousMillis = currentMillis;
   }
