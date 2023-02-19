@@ -8,10 +8,12 @@
 #define NUM_LEDS 64
 #define DATA_PIN 13
 #define BRIGHTNESS 30
-#define POLL_INTERVAL 300000
+#define NORMAL_POLL_INTERVAL 300000
+#define FAST_POLL_INTERVAL 60000
 
 unsigned long previousMillis;
 unsigned long currentMillis;
+unsigned long pollInterval;
 
 WiFiClientSecure *client;
 HTTPClient https;
@@ -153,10 +155,78 @@ void setup() {
   Serial.println();
   FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness( BRIGHTNESS );
+  pollInterval = NORMAL_POLL_INTERVAL;
   Serial.println("Starting...");
   https.setCookieJar(&cookies);
   DisplayFullScale();
+  delay(2000);
 }
+
+void loop() {
+  if (!client) {
+    DisplayError(ledYellow);
+    Serial.println("No WiFi client");
+    client = new WiFiClientSecure();
+    client->setInsecure();
+    Serial.println("WiFi client started");    
+  }
+
+  if ( !(WiFi.status() == WL_CONNECTED) ) {
+    DisplayError(ledYellow);
+    Serial.println("No WiFi connection");
+    connectToWiFi();
+    Serial.println("WiFi client connected");
+    previousMillis = millis();
+    PeriodicGetData();
+  }  
+
+  currentMillis = millis();
+  if (currentMillis - previousMillis >= pollInterval) {
+    PeriodicGetData();
+    previousMillis = currentMillis;
+  }
+}
+
+void connectToWiFi() {
+  int TryCount = 0;
+  while ( WiFi.status() != WL_CONNECTED ) {
+    TryCount++;
+    WiFi.disconnect();
+    WiFi.begin( "baku2", "12837455" );
+    vTaskDelay( 4000 );
+    if ( TryCount == 10 ) {
+      ESP.restart();
+    }
+  }
+}
+
+void PeriodicGetData() {
+  bool success = GetData();  // Try get data
+  
+  if (success != true) {    
+    success = Login();       // If failed - do Login
+    if (success != true) {
+      DisplayError(ledRed);  // If login failed - error
+      return;
+    } else {
+      success = GetData();   // Retry get data
+      if (success != true) {
+        DisplayError(ledRed);// If failed again - error
+        return;
+      }
+    }
+  }
+
+  DisplayArrow(GetArrowFromTrend(currentTrend), GetColorFromSg(currentSg));
+  // TODO: comparison with previous values
+  lastTrend = currentTrend;
+  lastSg = currentSg;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////
+// Display functions ////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 
 void DisplayRainbow() {
   for (int i=0; i<NUM_LEDS; i++) {
@@ -273,7 +343,12 @@ byte* GetArrowFromTrend(const String& trend) {
   } 
 }
 
-String exractParam(const String& authReq, const String& param, const char delimit) {
+
+/////////////////////////////////////////////////////////////////////////////////
+// CareLink API functions ///////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+
+String ExtractParameter(const String& authReq, const String& param, const char delimit) {
   int _begin = authReq.indexOf(param.c_str());
   if (_begin == -1) 
   {    
@@ -281,6 +356,21 @@ String exractParam(const String& authReq, const String& param, const char delimi
   }
   String result = authReq.substring(_begin + param.length(), authReq.indexOf(delimit, _begin + param.length()));
   return result;
+}
+
+bool Login() {
+  https.clearAllCookies();
+  bool success = GetLoginPage();
+
+  if (success == true) {
+    success = SubmitLogin();
+  }
+
+  if (success == true) {
+    success = SubmitConsent();
+  }
+
+  return success;
 }
 
 bool GetLoginPage() {
@@ -296,14 +386,12 @@ bool GetLoginPage() {
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
       https.getString();
       const String& location = https.getLocation();
-      sessionId = exractParam(location.c_str(), F("sessionID="), '&');
-      sessionData = exractParam(location.c_str(), F("sessionData="), '&');
-      //Serial.printf("SessionID:   %s\n", sessionId.c_str());
-      //Serial.printf("SessionData: %s\n\n", sessionData.c_str());       
+      sessionId = ExtractParameter(location.c_str(), F("sessionID="), '&');
+      sessionData = ExtractParameter(location.c_str(), F("sessionData="), '&');      
       https.end();
       return true;
     } else {
-      Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      Serial.printf("[HTTPS] GET failed, error: %s\n", https.errorToString(httpCode).c_str());
     }
   } else {
     Serial.printf("[HTTPS] Unable to connect\n");
@@ -331,20 +419,20 @@ bool SubmitLogin () {
         payload = https.getString();
         //Serial.println(payload.c_str());
 
-        consentUrl         = exractParam(payload, "form action=\"", '"');
-        consentSessionId   = exractParam(payload, "\"sessionID\" value=\"", '"');
-        consentSessionData = exractParam(payload, "\"sessionData\" value=\"", '"');                
+        consentUrl         = ExtractParameter(payload, "form action=\"", '"');
+        consentSessionId   = ExtractParameter(payload, "\"sessionID\" value=\"", '"');
+        consentSessionData = ExtractParameter(payload, "\"sessionData\" value=\"", '"');                
         Serial.printf("ConsentUrl:         %s\n", consentUrl.c_str());
         Serial.printf("ConsentSessionData: %s\n", consentSessionData.c_str());
         Serial.printf("ConsentSessionId:   %s\n\n", consentSessionId.c_str());
 
         https.end();
         return true;                  
-    }  
-    else
-    {
-      Serial.printf("[HTTPS] POST failed... failed, error: %s\n", https.errorToString(httpCode).c_str());
+    } else {
+      Serial.printf("[HTTPS] POST failed, error: %s\n", https.errorToString(httpCode).c_str());
     }                               
+  } else {
+    Serial.printf("[HTTPS] Unable to connect\n");
   }
   https.end();
   return false;
@@ -382,25 +470,14 @@ bool SubmitConsent() {
       }
       https.end();
       return true;
+    } else {
+      Serial.printf("[HTTPS] POST failed, error: %s\n", https.errorToString(httpCode).c_str());
     }
+  } else {
+    Serial.printf("[HTTPS] Unable to connect\n");
   }
   https.end();
   return false;
-}
-
-bool Login() {
-  https.clearAllCookies();
-  bool success = GetLoginPage();
-
-  if (success == true) {
-    success = SubmitLogin();
-  }
-
-  if (success == true) {
-    success = SubmitConsent();
-  }
-
-  return success;
 }
 
 bool GetData() {
@@ -408,7 +485,6 @@ bool GetData() {
   if (https.begin(*client, "https://clcloud.minimed.eu/connect/v2/display/message")) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     https.setTimeout(60000);
-
     https.setUserAgent(F("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0"));
     https.addHeader(F("Accept"), F("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"));
     https.addHeader(F("Accept-Language"), F("en-US,en;q=0.9"));
@@ -416,20 +492,14 @@ bool GetData() {
     https.setReuse(true);
     https.setAuthorizationType("Bearer");
     https.setAuthorization(authToken.c_str());
-    /////Serial.println("Auth cookie:");
-    /////Serial.println(authToken.c_str());
     content = "{\"username\":\"sylwiadk\",\"role\":\"patient\"}";
-    /////Serial.printf("Content: %s\n", content.c_str());
     httpCode = https.POST(content.c_str());
-    /////Serial.println(httpCode);
 
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {             
-////////////////////////////////////////////////////////////
       WiFiClient * stream = https.getStreamPtr();
       StaticJsonDocument<256> filter;
       filter["lastSGTrend"] = true;
       filter["lastSG"]["sg"] = true;
-
       StaticJsonDocument<1024> doc;
 
       DeserializationError error = deserializeJson(doc, *stream, DeserializationOption::Filter(filter));
@@ -439,31 +509,28 @@ bool GetData() {
         Serial.print("deserializeJson() failed: ");
         Serial.println(error.c_str());
         trend = "";
-        lastSg = 0;        
+        currentSg = 0;        
       } else {  
-        trend = doc["lastSGTrend"]; // "NONE"
-        lastSg = doc["lastSG"]["sg"]; // 172        
+        trend = doc["lastSGTrend"];
+        currentSg = doc["lastSG"]["sg"];       
       }
-      lastTrend = String(trend);
-/////////////////////////////////////////////////////////////////
+      currentTrend = String(trend);
+      
+      // Print payload //////////////////////////////////////////////////
       //Serial.print("[");
       //int len = https.getSize();
       //uint8_t buff[512];
       //// get tcp stream
       //WiFiClient * stream = https.getStreamPtr();
-
       //// read all data from server
       //while(https.connected() && (len > 0 || len == -1)) {
       //    // get available data size
       //    size_t size = stream->available();
-
       //    if(size) {
       //        // read up to 128 byte
       //        int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-
       //        // write it to Serial
       //        Serial.write(buff, c);
-
       //        if(len > 0) {
       //            len -= c;
       //        }
@@ -471,80 +538,21 @@ bool GetData() {
       //    delay(1);
       //}   
       //Serial.println("] End");       
-
-
-////////////////////////////////////////////////////////////////////
+      ////////////////////////////////////////////////////////////////////
 
       Serial.print("Trend: ");
-      Serial.print(lastTrend);
+      Serial.print(currentTrend);
       Serial.print("  SG: ");
-      Serial.println(lastSg);
+      Serial.println(currentSg);
 
-      https.end();/////////////
+      https.end();
       return true;                
+    } else {
+      Serial.printf("[HTTPS] POST failed, error: %s\n", https.errorToString(httpCode).c_str());
     }
+  } else {
+    Serial.printf("[HTTPS] Unable to connect\n");
   }
   https.end();
   return false;
-}
-
-void connectToWiFi()
-{
-  int TryCount = 0;
-  while ( WiFi.status() != WL_CONNECTED )
-  {
-    TryCount++;
-    WiFi.disconnect();
-    WiFi.begin( "baku2", "12837455" );
-    vTaskDelay( 4000 );
-    if ( TryCount == 10 )
-    {
-      ESP.restart();
-    }
-  }
-
-} // void connectToWiFi()
-
-void PeriodicGetData() {
-  bool success = GetData();  // Try get data
-  
-  if (success != true) {    
-    success = Login();       // If failed - do Login
-    if (success != true) {
-      DisplayError(ledRed);  // If login failed - error
-      return;
-    } else {
-      success = GetData();   // Retry get data
-      if (success != true) {
-        DisplayError(ledRed);// If failed again - error
-        return;
-      }
-    }
-  }
-
-  DisplayArrow(GetArrowFromTrend(lastTrend), GetColorFromSg(lastSg));
-  
-}
-
-void loop() {
-  if (!client) {
-    Serial.println("No WiFi client");
-    client = new WiFiClientSecure();
-    client->setInsecure();
-    Serial.println("WiFi client started");    
-  }
-
-  if ( !(WiFi.status() == WL_CONNECTED) ) {
-    Serial.println("No WiFi connection");
-    connectToWiFi();
-    Serial.println("WiFi client connected");
-    previousMillis = millis();
-    PeriodicGetData();
-  }  
-
-  currentMillis = millis();
-  if (currentMillis - previousMillis >= POLL_INTERVAL) {
-    PeriodicGetData();
-    previousMillis = currentMillis;
-  }
 }
