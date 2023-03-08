@@ -14,6 +14,7 @@ CRGB ledOff = CHSV( 0, 0, 0);
 CRGB ledRed = CHSV( 0, 255, 255);
 CRGB ledYellow = CHSV( 40, 255, 255);
 CRGB ledBlue = CHSV( 160, 255, 255);
+CRGB ledGreen = CHSV( 96, 255, 255);
 
 byte maskUp[NUM_LEDS] = {1,1,1,1,1,1,1,1,
                          1,1,1,1,1,1,1,1,
@@ -114,14 +115,14 @@ byte maskEmpty[NUM_LEDS] = {0,0,0,0,0,0,0,0,
                             0,0,0,0,0,0,0,0,
                             0,0,0,0,0,0,0,0,};
 
-byte maskLogo[NUM_LEDS] =  {0,0,0,0,0,0,0,0,
-                            0,0,0,0,0,0,0,0,
-                            0,0,0,1,0,0,0,0,
-                            0,1,1,0,1,0,1,0,
-                            0,1,0,0,0,1,0,0,
-                            0,1,0,0,1,0,0,0,
-                            0,1,1,1,1,0,0,0,
-                            0,0,0,0,0,0,0,0,};
+byte maskLogo[NUM_LEDS] =  {0,0,1,1,1,0,0,0,
+                            0,1,0,0,0,0,0,0,
+                            1,0,0,0,0,0,0,0,
+                            1,0,1,0,0,0,0,1,
+                            1,0,0,1,0,1,0,1,
+                            1,0,0,0,1,0,0,1,
+                            0,1,0,0,0,0,1,0,
+                            0,0,1,1,1,1,0,0,};
 
 void InitDisplay() {
   FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);
@@ -201,6 +202,17 @@ void DisplayFullScale() {
   FastLED.show();
 }
 
+void DisplayLogo() {
+  for (int i=0; i<NUM_LEDS; i++) {
+    if (maskLogo[i] == 1) {
+      leds[i] = CHSV( map(i, 0, 63, 115, 240), 255, 255); 
+    } else {
+      leds[i] = ledOff;
+    }
+  }
+  FastLED.show();
+}
+
 void DisplayError(CRGB currentColor) {
   for (int i=0; i<NUM_LEDS; i++) {
     if (maskError[i] == 1) {
@@ -222,6 +234,10 @@ void DisplayYellowError() {
 
 void DisplayBlueError() {
   DisplayError(ledBlue);
+}
+
+void DisplayGreenError() {
+  DisplayError(ledGreen);
 }
 
 void DisplayArrow(byte* mask, int currentSg) {

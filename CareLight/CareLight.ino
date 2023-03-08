@@ -1,9 +1,7 @@
 #include <Arduino.h>
 #include <FastLED.h>
 
-
-
-#define POLL_INTERVAL 60000
+#define POLL_INTERVAL 65000
 
 int oneArrowDifference = 3;
 int twoArrowDifference = 12;
@@ -14,8 +12,7 @@ unsigned long currentMillis;
 unsigned long pollInterval;
 bool newConnection;
 
-
-long long lastDataUpdateServerTime;
+long long lastDataUpdateTime;
 String lastTrend = "";
 int lastSg = 0;
  
@@ -41,28 +38,31 @@ void setup() {
   Serial.println("Reading configuration...");
   if (!ArePreferencesSet()){
     Serial.println("Configuration empty, entering setup");
-    DefaultPreferences();   
-    DisplayRainbow(); 
+    DefaultPreferences();
+    SetDisplayBrightness(GetBrightness());   
+    DisplayLogo(); 
     UpdatePreferences();
     Serial.println("Configuration updated");
+    ESP.restart();
   } else {
     ReadPreferences();
     PrintPreferences();
     Serial.print("Press any key for setup (in 5 seconds)... ");
     SetDisplayBrightness(GetBrightness());
-    
-    DisplayFullScale();
+    DisplayLogo();
     previousMillis = millis();
     while (1) {
       if (Serial.available()) {
         Serial.println("Entering setup");
         UpdatePreferences();
         Serial.println("Configuration updated");
+        ESP.restart();
         break;
       }
       currentMillis = millis();
       if (currentMillis - previousMillis >= 5000) {
         Serial.println("Skipped");
+        ClearDisplay();        
         break;
       }
     }
@@ -71,10 +71,11 @@ void setup() {
 
 void loop() {
   if ( !IsClientConnected() ) {
+    Serial.println("Initializing WiFi connection started ");
     DisplayYellowError();
-    Serial.print("Initializing WiFi connection... ");
     connectToWiFi();
-    Serial.println("Done");
+    Serial.println("Initializing WiFi connection done");
+    DisplayGreenError();
     previousMillis = 0;
     newConnection = true;
   }  
@@ -82,79 +83,86 @@ void loop() {
   currentMillis = millis();
   if (currentMillis - previousMillis >= POLL_INTERVAL || newConnection) {
     newConnection = false;   
-    PeriodicGetData();
+    bool success = PeriodicGetData();
+    if (success && IsDataStale()) {
+      Serial.println("  Stale data (>10min)");
+      DisplayBlueError();
+    } else if (success && GetCurrentSg() == 0) {
+      Serial.println("  Stale data (Current SG = 0)");
+    } else if (success) {
+      long long dataUpdateTime = GetUpdateTime();      
+      if (dataUpdateTime != lastDataUpdateTime) {
+        lastDataUpdateTime = dataUpdateTime;
+        Serial.println("  Updating display");
+        DisplayData();
+      } else {
+        Serial.println("  No new readings");
+      }
+    } else if (!success && !IsClientConnected()) {
+      Serial.println("  WiFi connection lost");
+      DisplayYellowError();
+    } else if (!success && IsClientConnected()) {
+      Serial.println("  CareLink API error");
+      DisplayRedError();
+    }
     previousMillis = currentMillis;
   }
 }
 
-void PeriodicGetData() {
-  bool success = GetData();  // Try get data
-  
-  if (success != true) {    
-    success = Login();       // If failed - do Login
-    if (success != true && IsClientConnected()) {
-      DisplayRedError();  // If login failed - error
-      return;
+bool PeriodicGetData() {
+  if (!GetData()) {    
+    if (!Login()) {       // If GetData failed
+      return false;       // And if Login failed - error
     } else {
-      success = GetData();   // Retry get data
-      if (success != true && IsClientConnected()) {
-        DisplayRedError();// If failed again - error
-        return;
+      if (!GetData()) {   // If Login succeded
+        return false;     // But GetData still fails - error
       }
     }
   }
-
-  int currentSg = GetCurrentSg();
-  String currentTrend = GetCurrentTrend();
-  long long dataUpdateTime = GetUpdateTime();
-  if (IsDataStale()) {
-    DisplayBlueError();
-    Serial.println("  Stale data (>10min)");
-  } else if (currentSg == 0) {
-    DisplayBlueError();
-    Serial.println("  Stale data (Current SG = 0)");
-  } else if (GetUpdateTime() != lastDataUpdateServerTime) {
-    Serial.println("  Updating arrow and last SG/Update time");
-    lastDataUpdateServerTime = GetUpdateTime();
-    if (currentSg >= 400) {
-      Serial.println("  Current SG over 400");
-      DisplayTooHighArrow(currentSg);
-    } else if (currentSg <= 40) {
-      Serial.println("  Current SG under 40");
-      DisplayTooLowArrow(currentSg);
-    } else if(lastSg == 0) {
-      Serial.println("  No last SG, using arrow from current trend");
-      DisplayArrowFromTrend(currentTrend, currentSg);
-    } else {
-      int deltaSg = abs(currentSg - lastSg);
-      bool rising = currentSg >= lastSg;
-      if (deltaSg >= threeArrowDifference && rising) {
-        DisplayTripleUpArrow(currentSg);
-      } else if (deltaSg >= twoArrowDifference && deltaSg < threeArrowDifference && rising) {
-        DisplayDoubleUpArrow(currentSg);
-      } else if (deltaSg >= oneArrowDifference && deltaSg < twoArrowDifference && rising) {
-        DisplayUpArrow(currentSg);
-      } else if (deltaSg < oneArrowDifference) {
-        DisplayStableArrow(currentSg);
-      } else if (deltaSg >= oneArrowDifference && deltaSg < twoArrowDifference && !rising) {
-        DisplayDownArrow(currentSg);
-      } else if (deltaSg >= twoArrowDifference && deltaSg < threeArrowDifference && !rising) {
-        DisplayDoubleDownArrow(currentSg);
-      } else if (deltaSg >= threeArrowDifference && !rising) {
-        DisplayTripleDownArrow(currentSg);
-      } else {
-        ClearDisplay();
-      }
-    }
-    
-    lastSg = currentSg;
-  } else {
-    Serial.println("  No new readings");
-  }
+  // GetData succeded
+  return true;
 }
 
+void DisplayData() {  
+  int currentSg = GetCurrentSg();
+  String currentTrend = GetCurrentTrend();
+  if (currentSg >= 400) {
+    Serial.println("  Current SG over 400");
+    DisplayTooHighArrow(currentSg);
+  } else if (currentSg <= 40) {
+    Serial.println("  Current SG under 40");
+    DisplayTooLowArrow(currentSg);
+  } else if(lastSg == 0) {
+    Serial.println("  No last SG, using arrow from current trend");
+    DisplayArrowFromTrend(currentTrend, currentSg);
+  } else {
+    int deltaSg = abs(currentSg - lastSg);
+    bool rising = currentSg >= lastSg;
+    if (deltaSg >= threeArrowDifference && rising) {
+      DisplayTripleUpArrow(currentSg);
+    } else if (deltaSg >= twoArrowDifference && deltaSg < threeArrowDifference && rising) {
+      DisplayDoubleUpArrow(currentSg);
+    } else if (deltaSg >= oneArrowDifference && deltaSg < twoArrowDifference && rising) {
+      DisplayUpArrow(currentSg);
+    } else if (deltaSg < oneArrowDifference) {
+      DisplayStableArrow(currentSg);
+    } else if (deltaSg >= oneArrowDifference && deltaSg < twoArrowDifference && !rising) {
+      DisplayDownArrow(currentSg);
+    } else if (deltaSg >= twoArrowDifference && deltaSg < threeArrowDifference && !rising) {
+      DisplayDoubleDownArrow(currentSg);
+    } else if (deltaSg >= threeArrowDifference && !rising) {
+      DisplayTripleDownArrow(currentSg);
+    } else {
+      ClearDisplay();
+    }
+  }
+  
+  lastSg = currentSg;
+}
+
+
 bool Login() {
-  Serial.print("Authentication... ");
+  Serial.println("  Authentication started");
   ClearCookies();
   bool success = GetLoginPage();
 
@@ -167,9 +175,9 @@ bool Login() {
   }
 
   if (success == true) {
-    Serial.println("Done");
+    Serial.println("  Authentication done");
   } else {
-    Serial.println("Failed");
+    Serial.println("  Authentication failed");
   }
 
   return success;

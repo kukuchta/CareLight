@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////////
-// CareLink client functions ///////////////////////////////////////////////////////
+// CareLink client functions ////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
 
 #include <Arduino.h>
@@ -8,6 +8,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <StreamUtils.h>
 
 WiFiClientSecure *client;
 HTTPClient https;
@@ -63,8 +64,8 @@ void connectToWiFi() {
     TryCount++;
     WiFi.disconnect();
     WiFi.begin( GetSsid().c_str(), GetPassword().c_str() );
-    vTaskDelay( 4000 );
-    if ( TryCount == 30 ) {
+    vTaskDelay( 5000 );
+    if ( TryCount == 60 ) {
       ESP.restart();
     }
   }
@@ -81,14 +82,14 @@ String ExtractParameter(const String& authReq, const String& param, const char d
 }
 
 bool GetLoginPage() {
-  //Serial.print("Authentication... ");
+  Serial.print("  Get login page: ");
   if (https.begin(*client, F("https://carelink.minimed.eu/patient/sso/login?country=pl&lang=en"))) { //TODO country
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     https.setTimeout(60000);
     https.setReuse(true);
 
     httpCode = https.GET();
-    //Serial.println(httpCode);
+    Serial.println(httpCode);
     
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
       https.getString();
@@ -97,18 +98,20 @@ bool GetLoginPage() {
       sessionData = ExtractParameter(location.c_str(), F("sessionData="), '&');      
       https.end();
       return true;
+    } else if (httpCode < 0) {
+      Serial.printf("  Get login page failed, %s\n", https.errorToString(httpCode).c_str());
     } else {
-      Serial.printf("[HTTPS] GET failed, error: %s\n", https.errorToString(httpCode).c_str());
+      Serial.println("  Get login page failed");
     }
   } else {
-    Serial.printf("[HTTPS] Unable to connect\n");
+    Serial.println("  Get login page failed, unable to connect");
   }
   https.end();
   return false;
 }
 
 bool SubmitLogin () {
-  //Serial.println("Submit login:");
+  Serial.print("  Submit login: ");
   String url = "https://mdtlogin.medtronic.com/mmcl/auth/oauth/v2/authorize/login?locale=en&country=";
   url += GetCareLinkCountry().c_str();
   if (https.begin(*client, url)) {
@@ -122,7 +125,7 @@ bool SubmitLogin () {
     //Serial.printf("Content: %s\n", content.c_str());
     
     httpCode = https.POST(content);
-    //Serial.println(httpCode);
+    Serial.println(httpCode);
     
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
         payload = https.getString();
@@ -137,18 +140,20 @@ bool SubmitLogin () {
 
         https.end();
         return true;                  
+    } else if (httpCode < 0) {
+      Serial.printf("  Submit login failed, %s\n", https.errorToString(httpCode).c_str());
     } else {
-      Serial.printf("[HTTPS] POST failed, error: %s\n", https.errorToString(httpCode).c_str());
+      Serial.println("  Submit login failed");
     }                               
   } else {
-    Serial.printf("[HTTPS] Unable to connect\n");
+    Serial.println("  Submit login failed, unable to connect");
   }
   https.end();
   return false;
 }
 
 bool SubmitConsent() {
-  //Serial.println("Submit consent:");
+  Serial.print("  Submit consent: ");
   if (https.begin(*client, consentUrl.c_str())) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     https.setTimeout(60000);
@@ -166,7 +171,7 @@ bool SubmitConsent() {
     content = String("action=consent&sessionID=" + consentSessionId + "&sessionData=" + consentSessionData + "&response_type=code&response_mode=query");
     //Serial.printf("Content: %s\n", content.c_str());
     httpCode = https.POST(content.c_str());
-    //Serial.println(httpCode);
+    Serial.println(httpCode);
 
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {             
       https.getString();
@@ -181,21 +186,23 @@ bool SubmitConsent() {
       }
       https.end();
       return true;
+    } else if (httpCode < 0) {
+      Serial.printf("  Submit consent failed, %s\n", https.errorToString(httpCode).c_str());
     } else {
-      Serial.printf("[HTTPS] POST failed, error: %s\n", https.errorToString(httpCode).c_str());
+      Serial.println("  Submit consent failed");
     }
   } else {
-    Serial.printf("[HTTPS] Unable to connect\n");
+    Serial.println("  Submit consent failed, unable to connect");
   }
   https.end();
   return false;
 }
 
 bool GetData() {
-  //Serial.print("Get data: ");
+  Serial.print("  Get data: ");
   if (https.begin(*client, "https://clcloud.minimed.eu/connect/v2/display/message")) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-    https.setTimeout(60000);
+    https.setTimeout(30000);
     https.setUserAgent(F("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0"));
     https.addHeader(F("Accept"), F("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"));
     https.addHeader(F("Accept-Language"), F("en-US,en;q=0.9"));
@@ -205,6 +212,7 @@ bool GetData() {
     https.setAuthorization(authToken.c_str());
     content = "{\"username\":\"" + GetCareLinkUser() + "\",\"role\":\"patient\"}";
     httpCode = https.POST(content.c_str());
+    Serial.println(httpCode);
 
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {             
       WiFiClient * stream = https.getStreamPtr();
@@ -215,15 +223,19 @@ bool GetData() {
       filter["lastSG"]["sg"] = true;
    
       StaticJsonDocument<1024> doc;
-      stream->setTimeout(20);
+      stream->setTimeout(100);
       DeserializationError error = deserializeJson(doc, *stream, DeserializationOption::Filter(filter));
 
+      //ReadLoggingStream loggingStream(*stream, Serial);
+      //loggingStream.setTimeout(100);      
+      //Serial.print("    JSON start\n    ");      
+      //DeserializationError error = deserializeJson(doc, loggingStream, DeserializationOption::Filter(filter));
+      //Serial.println("\n    JSON end");
       const char* trend;
       if (error) {
-        Serial.print("deserializeJson() failed: ");
+        Serial.print("Data deserialization failed, ");
         Serial.println(error.c_str());
-        trend = "";
-        currentSg = 0;        
+        return false;
       } else {  
         currentServerTime = doc["currentServerTime"];
         dataUpdateServerTime = doc["lastMedicalDeviceDataUpdateServerTime"];
@@ -256,25 +268,20 @@ bool GetData() {
       //Serial.println("] End");       
       ////////////////////////////////////////////////////////////////////
 
-      Serial.print("Trend: ");
-      Serial.print(currentTrend);
-      Serial.print("  SG: ");
-      Serial.print(currentSg);
-      Serial.print("  Updated: ");
       long diff = currentServerTime - dataUpdateServerTime;
-      Serial.print(diff/60000);
-      Serial.print(":");
-      Serial.print((diff/1000) - ((diff/60000)*60));
-      Serial.print(" ago");      
-      Serial.println();
+      int minutes = (diff / 1000) / 60;
+      int seconds = (diff / 1000) % 60;
+      Serial.printf("Trend: %s  SG: %d  Updated: %d:%02d ago\n", currentTrend, currentSg, minutes, seconds);
 
       https.end();
       return true;                
+    } else if (httpCode < 0) {
+      Serial.printf("  Get data failed, %s\n", https.errorToString(httpCode).c_str());
     } else {
-      Serial.printf("[HTTPS] POST failed, error: %s\n", https.errorToString(httpCode).c_str());
+      Serial.println("  Get data failed");
     }
   } else {
-    Serial.printf("[HTTPS] Unable to connect\n");
+    Serial.println("  Get data failed, unable to connect");
   }
   https.end();
   return false;

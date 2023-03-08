@@ -136,6 +136,7 @@ void UpdatePreferences(){
 
   Serial.println("Highest range from " + String(treshold[6] + 1) + " to 400 mg/dl - set color hue.");
   color[7] = StoreColor("  Color 8", "COLOR_8", color[7], 1, 255);
+  ClearDisplay();
   preferences.end();
 }
 
