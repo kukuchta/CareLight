@@ -82,7 +82,7 @@ void loop() {
 
   currentMillis = millis();
   if (currentMillis - previousMillis >= POLL_INTERVAL || newConnection) {
-    newConnection = false;   
+       
     bool success = PeriodicGetData();
     if (success && IsDataStale()) {
       Serial.println("  Stale data (>10min)");
@@ -91,7 +91,7 @@ void loop() {
       Serial.println("  Stale data (Current SG = 0)");
     } else if (success) {
       long long dataUpdateTime = GetUpdateTime();      
-      if (dataUpdateTime != lastDataUpdateTime) {
+      if (dataUpdateTime != lastDataUpdateTime || newConnection) {
         lastDataUpdateTime = dataUpdateTime;
         Serial.println("  Updating display");
         DisplayData();
@@ -106,6 +106,7 @@ void loop() {
       DisplayRedError();
     }
     previousMillis = currentMillis;
+    newConnection = false;
   }
 }
 

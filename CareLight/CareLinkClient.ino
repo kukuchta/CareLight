@@ -238,7 +238,7 @@ bool GetData() {
         return false;
       } else {  
         currentServerTime = doc["currentServerTime"];
-        dataUpdateServerTime = doc["lastMedicalDeviceDataUpdateServerTime"];
+        dataUpdateServerTime = doc["lastMedicalDeviceDataUpdateServerTime"];  // TODO: Try with lastConduitUpdateServerTime
         trend = doc["lastSGTrend"];
         currentSg = doc["lastSG"]["sg"];   
       }
