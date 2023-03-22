@@ -9,6 +9,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <StreamUtils.h>
+#include <time.h>
 
 WiFiClientSecure *client;
 HTTPClient https;
@@ -22,11 +23,10 @@ String consentUrl;
 String consentSessionId;
 String consentSessionData;
 String content;
+
 String currentTrend;
 int currentSg;
-long long currentServerTime;
-long long dataUpdateServerTime; 
-
+unsigned long currentSgDatetime;
 
 void InitCareLinkClient() {
   https.setCookieJar(&cookies);
@@ -42,20 +42,16 @@ void ClearCookies() {
   https.clearAllCookies();
 }
 
-bool IsDataStale() {
-  return (currentServerTime - dataUpdateServerTime) > 600000;
-}
-
 int GetCurrentSg() {
   return currentSg;
 }
 
-String GetCurrentTrend() {
-  return currentTrend;
+unsigned long GetCurrentSgDatetime() {
+  return currentSgDatetime;
 }
 
-long long GetUpdateTime() {
-  return dataUpdateServerTime;
+String GetCurrentTrend() {
+  return currentTrend;
 }
 
 void connectToWiFi() {
@@ -216,11 +212,10 @@ bool GetData() {
 
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {             
       WiFiClient * stream = https.getStreamPtr();
-      StaticJsonDocument<256> filter;
-      filter["currentServerTime"] = true;  
-      filter["lastMedicalDeviceDataUpdateServerTime"] = true;  
+      StaticJsonDocument<512> filter;
       filter["lastSGTrend"] = true;
       filter["lastSG"]["sg"] = true;
+      filter["lastSG"]["datetime"] = true;
    
       StaticJsonDocument<1024> doc;
       stream->setTimeout(100);
@@ -232,17 +227,21 @@ bool GetData() {
       //DeserializationError error = deserializeJson(doc, loggingStream, DeserializationOption::Filter(filter));
       //Serial.println("\n    JSON end");
       const char* trend;
+      const char* datetime;
       if (error) {
-        Serial.print("Data deserialization failed, ");
+        Serial.print("  Data deserialization failed, ");
         Serial.println(error.c_str());
         return false;
       } else {  
-        currentServerTime = doc["currentServerTime"];
-        dataUpdateServerTime = doc["lastMedicalDeviceDataUpdateServerTime"];  // TODO: Try with lastConduitUpdateServerTime
         trend = doc["lastSGTrend"];
-        currentSg = doc["lastSG"]["sg"];   
+        currentSg = doc["lastSG"]["sg"];
+        datetime = doc["lastSG"]["datetime"];   
       }
       currentTrend = String(trend);
+      struct tm t;
+      memset(&t, 0, sizeof(t));
+      strptime(datetime, "%Y-%m-%dT%H:%M:%S", &t);
+      currentSgDatetime = mktime(&t);
       
       // Print payload //////////////////////////////////////////////////
       //Serial.print("[");
@@ -267,11 +266,6 @@ bool GetData() {
       //}   
       //Serial.println("] End");       
       ////////////////////////////////////////////////////////////////////
-
-      long diff = currentServerTime - dataUpdateServerTime;
-      int minutes = (diff / 1000) / 60;
-      int seconds = (diff / 1000) % 60;
-      Serial.printf("Trend: %s  SG: %d  Updated: %d:%02d ago\n", currentTrend, currentSg, minutes, seconds);
 
       https.end();
       return true;                

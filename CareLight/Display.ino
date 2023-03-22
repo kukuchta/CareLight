@@ -7,7 +7,8 @@
 #include <FastLED.h>
 
 #define NUM_LEDS 64
-#define DATA_PIN 13
+#define DATA_PIN 12
+//#define DATA_PIN 13
 
 CRGB leds[NUM_LEDS];
 CRGB ledOff = CHSV( 0, 0, 0);
@@ -116,13 +117,14 @@ byte maskEmpty[NUM_LEDS] = {0,0,0,0,0,0,0,0,
                             0,0,0,0,0,0,0,0,};
 
 byte maskLogo[NUM_LEDS] =  {0,0,1,1,1,1,0,0,
-                            0,1,0,0,0,0,1,0,
-                            1,0,0,0,1,0,0,1,
-                            1,0,0,1,0,0,0,1,
-                            1,0,1,0,0,0,0,1,
-                            1,0,0,1,0,0,0,0,
-                            0,1,0,0,0,0,0,0,
-                            0,0,1,1,1,0,0,0,};
+                            0,1,1,1,1,1,1,0,
+                            1,1,1,0,0,1,1,1,
+                            1,1,0,0,0,0,1,1,
+                            1,1,0,0,0,0,1,1,
+                            1,1,1,0,0,1,1,1,
+                            0,1,1,1,1,1,1,0,
+                            0,0,1,1,1,1,0,0,};
+
 
 void InitDisplay() {
   FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);

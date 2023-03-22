@@ -1,21 +1,22 @@
 #include <Arduino.h>
 #include <FastLED.h>
 
-#define POLL_INTERVAL 65000
+#define POLL_INTERVAL 61000
 
 int oneArrowDifference = 3;
 int twoArrowDifference = 12;
 int threeArrowDifference = 20;
 
-unsigned long previousMillis;
-unsigned long currentMillis;
+unsigned long previousTime;
+unsigned long currentTime;
 unsigned long pollInterval;
+unsigned long lastSgDatetimeChange;
 bool newConnection;
+bool isAfterError;
 
-long long lastDataUpdateTime;
 String lastTrend = "";
 int lastSg = 0;
- 
+unsigned long lastSgDatetime = 0;
 
                             
 
@@ -50,7 +51,7 @@ void setup() {
     Serial.print("Press any key for setup (in 5 seconds)... ");
     SetDisplayBrightness(GetBrightness());
     DisplayLogo();
-    previousMillis = millis();
+    previousTime = millis();
     while (1) {
       if (Serial.available()) {
         Serial.println("Entering setup");
@@ -59,13 +60,13 @@ void setup() {
         ESP.restart();
         break;
       }
-      currentMillis = millis();
-      if (currentMillis - previousMillis >= 5000) {
+      currentTime = millis();
+      if (currentTime - previousTime >= 5000) {
         Serial.println("Skipped");
         ClearDisplay();        
         break;
       }
-    }
+    }    
   }
 }
 
@@ -76,36 +77,50 @@ void loop() {
     connectToWiFi();
     Serial.println("Initializing WiFi connection done");
     DisplayGreenError();
-    previousMillis = 0;
-    newConnection = true;
+    previousTime = 0;
+    lastSgDatetime = 0;
+    lastSgDatetimeChange = millis();
+    newConnection = true;    
   }  
 
-  currentMillis = millis();
-  if (currentMillis - previousMillis >= POLL_INTERVAL || newConnection) {
-       
-    bool success = PeriodicGetData();
-    if (success && IsDataStale()) {
-      Serial.println("  Stale data (>10min)");
-      DisplayBlueError();
-    } else if (success && GetCurrentSg() == 0) {
-      Serial.println("  Stale data (Current SG = 0)");
-    } else if (success) {
-      long long dataUpdateTime = GetUpdateTime();      
-      if (dataUpdateTime != lastDataUpdateTime || newConnection) {
-        lastDataUpdateTime = dataUpdateTime;
-        Serial.println("  Updating display");
-        DisplayData();
+  currentTime = millis();
+  if (currentTime - previousTime >= POLL_INTERVAL || newConnection) { 
+    bool currentDataReceived = PeriodicGetData();
+
+    if (currentDataReceived) {
+      Serial.printf("Trend: %s  SG: %d  Updated: %lu\n", GetCurrentTrend(), GetCurrentSg(), GetCurrentSgDatetime());
+      if (currentTime - lastSgDatetimeChange > 600000) {
+        Serial.println("  Stale data (>10min)");
+        DisplayBlueError();
       } else {
-        Serial.println("  No new readings");
+        if (GetCurrentSgDatetime() != lastSgDatetime || isAfterError) {
+          if (GetCurrentSg() == 0) {
+            Serial.println("  Stale data (Current SG = 0)"); //TODO: Filter out single readings with 0
+            DisplayBlueError();
+          } else {
+            Serial.println("  Updating display");
+            DisplayData();
+            lastSgDatetimeChange = currentTime;
+            lastSgDatetime = GetCurrentSgDatetime();
+            lastSg = GetCurrentSg();
+          }
+          isAfterError = false;
+        } else {
+          Serial.println("  No new readings");
+        }
       }
-    } else if (!success && !IsClientConnected()) {
-      Serial.println("  WiFi connection lost");
-      DisplayYellowError();
-    } else if (!success && IsClientConnected()) {
-      Serial.println("  CareLink API error");
-      DisplayRedError();
+    } else {
+      if (IsClientConnected()) {
+        Serial.println("  CareLink API error");
+        DisplayRedError();
+      } else {
+        Serial.println("  WiFi connection lost");
+        DisplayYellowError();
+      }
+      isAfterError = true;
     }
-    previousMillis = currentMillis;
+    
+    previousTime = currentTime;
     newConnection = false;
   }
 }
@@ -126,7 +141,6 @@ bool PeriodicGetData() {
 
 void DisplayData() {  
   int currentSg = GetCurrentSg();
-  String currentTrend = GetCurrentTrend();
   if (currentSg >= 400) {
     Serial.println("  Current SG over 400");
     DisplayTooHighArrow(currentSg);
@@ -135,30 +149,39 @@ void DisplayData() {
     DisplayTooLowArrow(currentSg);
   } else if(lastSg == 0) {
     Serial.println("  No last SG, using arrow from current trend");
-    DisplayArrowFromTrend(currentTrend, currentSg);
+    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
+  } else if(GetCurrentSgDatetime() <= lastSgDatetime) {
+    Serial.println("  Wrong timestamp, using arrow from current trend");
+    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
+  } else if(isAfterError) {  // TODO: Handle differently to not share this global flag
+    Serial.println("  Recovering after error, using arrow from current trend");
+    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
   } else {
     int deltaSg = abs(currentSg - lastSg);
+    Serial.printf("  DeltaSg: %d  ", deltaSg);
+    int deltaTimeMinutes = (GetCurrentSgDatetime() - lastSgDatetime) / 60;
+    Serial.printf("DeltaTime: %d  ", deltaTimeMinutes);
+    float slopePer5min = (deltaSg * 5) / deltaTimeMinutes;
+    Serial.printf("Slope: %f\n", slopePer5min);
     bool rising = currentSg >= lastSg;
-    if (deltaSg >= threeArrowDifference && rising) {
+    if (slopePer5min >= threeArrowDifference && rising) {
       DisplayTripleUpArrow(currentSg);
-    } else if (deltaSg >= twoArrowDifference && deltaSg < threeArrowDifference && rising) {
+    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && rising) {
       DisplayDoubleUpArrow(currentSg);
-    } else if (deltaSg >= oneArrowDifference && deltaSg < twoArrowDifference && rising) {
+    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && rising) {
       DisplayUpArrow(currentSg);
-    } else if (deltaSg < oneArrowDifference) {
+    } else if (slopePer5min < oneArrowDifference) {
       DisplayStableArrow(currentSg);
-    } else if (deltaSg >= oneArrowDifference && deltaSg < twoArrowDifference && !rising) {
+    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && !rising) {
       DisplayDownArrow(currentSg);
-    } else if (deltaSg >= twoArrowDifference && deltaSg < threeArrowDifference && !rising) {
+    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && !rising) {
       DisplayDoubleDownArrow(currentSg);
-    } else if (deltaSg >= threeArrowDifference && !rising) {
+    } else if (slopePer5min >= threeArrowDifference && !rising) {
       DisplayTripleDownArrow(currentSg);
     } else {
       ClearDisplay();
     }
   }
-  
-  lastSg = currentSg;
 }
 
 
