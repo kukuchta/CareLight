@@ -88,27 +88,34 @@ void loop() {
     bool currentDataReceived = PeriodicGetData();
 
     if (currentDataReceived) {
-      Serial.printf("Trend: %s  SG: %d  Updated: %lu\n", GetCurrentTrend(), GetCurrentSg(), GetCurrentSgDatetime());
+      Serial.printf("CurrentTrend: %s  CurrentSg: %d  LastSG: %d  CurrentSgDatetime: %lu  LastSgDatetime: %lu  CurrentTime: %lu  LastSgDatetimeChange: %lu  IsAfterError: %s\n", GetCurrentTrend(), GetCurrentSg(), lastSg, GetCurrentSgDatetime(), lastSgDatetime, currentTime, lastSgDatetimeChange, isAfterError ? "true" : "false");
+      
+      // mamy dane do sprawdzenia (przyszedł inny timestamp albo recovery po błędzie)
+      if (GetCurrentSgDatetime() != lastSgDatetime || isAfterError) {
+        if (GetCurrentSg() != 0) {
+          // mamy nowy odczyt
+          Serial.println("  Updating display");
+          DisplayData();
+          lastSgDatetimeChange = currentTime;
+          lastSgDatetime = GetCurrentSgDatetime();
+          lastSg = GetCurrentSg();
+        } else {
+          // mamy 0
+          Serial.println("  Stale data (Current SG = 0)"); //TODO: Filter out single readings with 0
+          DisplayBlueError();
+        }
+        // koniec recovery
+        isAfterError = false;
+      } else {
+        // nic do sprawdzenia
+        Serial.println("  No new readings");
+      }
+      // brak nowych odczytów przez 10 min
       if (currentTime - lastSgDatetimeChange > 600000) {
         Serial.println("  Stale data (>10min)");
         DisplayBlueError();
-      } else {
-        if (GetCurrentSgDatetime() != lastSgDatetime || isAfterError) {
-          if (GetCurrentSg() == 0) {
-            Serial.println("  Stale data (Current SG = 0)"); //TODO: Filter out single readings with 0
-            DisplayBlueError();
-          } else {
-            Serial.println("  Updating display");
-            DisplayData();
-            lastSgDatetimeChange = currentTime;
-            lastSgDatetime = GetCurrentSgDatetime();
-            lastSg = GetCurrentSg();
-          }
-          isAfterError = false;
-        } else {
-          Serial.println("  No new readings");
-        }
       }
+
     } else {
       if (IsClientConnected()) {
         Serial.println("  CareLink API error");
@@ -138,7 +145,7 @@ bool PeriodicGetData() {
   // GetData succeded
   return true;
 }
-
+                //currentSg, lastSg, currentTrend, currentSgDatetime, lastSgDatetime
 void DisplayData() {  
   int currentSg = GetCurrentSg();
   if (currentSg >= 400) {
@@ -153,15 +160,54 @@ void DisplayData() {
   } else if(GetCurrentSgDatetime() <= lastSgDatetime) {
     Serial.println("  Wrong timestamp, using arrow from current trend");
     DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
-  } else if(isAfterError) {  // TODO: Handle differently to not share this global flag
-    Serial.println("  Recovering after error, using arrow from current trend");
+  } else {
+    int deltaSg = abs(currentSg - lastSg);
+    Serial.printf("  DeltaSg: %d  ", deltaSg);
+    int deltaTimeMinutes = (GetCurrentSgDatetime() - lastSgDatetime) / 60;
+    Serial.printf("DeltaTime: %d  ", deltaTimeMinutes);
+    float slopePer5min = (deltaSg * 5.0) / deltaTimeMinutes;
+    Serial.printf("Slope: %f\n", slopePer5min);
+    bool rising = currentSg >= lastSg;
+    if (slopePer5min >= threeArrowDifference && rising) {
+      DisplayTripleUpArrow(currentSg);
+    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && rising) {
+      DisplayDoubleUpArrow(currentSg);
+    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && rising) {
+      DisplayUpArrow(currentSg);
+    } else if (slopePer5min < oneArrowDifference) {
+      DisplayStableArrow(currentSg);
+    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && !rising) {
+      DisplayDownArrow(currentSg);
+    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && !rising) {
+      DisplayDoubleDownArrow(currentSg);
+    } else if (slopePer5min >= threeArrowDifference && !rising) {
+      DisplayTripleDownArrow(currentSg);
+    } else {
+      ClearDisplay();
+    }
+  }
+}
+
+void GetSlope() {  
+  int currentSg = GetCurrentSg();
+  if (currentSg >= 400) {
+    Serial.println("  Current SG over 400");
+    DisplayTooHighArrow(currentSg);
+  } else if (currentSg <= 40) {
+    Serial.println("  Current SG under 40");
+    DisplayTooLowArrow(currentSg);
+  } else if(lastSg == 0) {
+    Serial.println("  No last SG, using arrow from current trend");
+    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
+  } else if(GetCurrentSgDatetime() <= lastSgDatetime) {
+    Serial.println("  Wrong timestamp, using arrow from current trend");
     DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
   } else {
     int deltaSg = abs(currentSg - lastSg);
     Serial.printf("  DeltaSg: %d  ", deltaSg);
     int deltaTimeMinutes = (GetCurrentSgDatetime() - lastSgDatetime) / 60;
     Serial.printf("DeltaTime: %d  ", deltaTimeMinutes);
-    float slopePer5min = (deltaSg * 5) / deltaTimeMinutes;
+    float slopePer5min = (deltaSg * 5.0) / deltaTimeMinutes;
     Serial.printf("Slope: %f\n", slopePer5min);
     bool rising = currentSg >= lastSg;
     if (slopePer5min >= threeArrowDifference && rising) {
