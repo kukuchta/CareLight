@@ -1,73 +1,65 @@
-/////////////////////////////////////////////////////////////////////////////////
-// CareLink client functions ////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////
+/*
+  CareLinkClient.cpp
+
+  Copyright (c) 2023, Jakub Kuchta
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
 
 #include <Arduino.h>
-
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <StreamUtils.h>
 #include <time.h>
+#include "CareLinkClient.h"
+#include "Config.h"
 
-WiFiClientSecure *client;
-HTTPClient https;
-int httpCode;
-String payload;
-CookieJar cookies;
-String sessionId;
-String sessionData;
-String authToken;
-String consentUrl;
-String consentSessionId;
-String consentSessionData;
-String content;
+CareLinkClient::CareLinkClient(Config &cfg) : config(cfg) 
+{ }
 
-String currentTrend;
-int currentSg;
-unsigned long currentSgDatetime;
-
-void InitCareLinkClient() {
+void CareLinkClient::Init(void)
+{
+  Serial.print("Initializing CareLink client... ");
   https.setCookieJar(&cookies);
   client = new WiFiClientSecure();
-  client->setInsecure();   
+  client->setInsecure(); 
+  Serial.println("Done"); 
 }
 
-bool IsClientConnected() {
+bool CareLinkClient::IsConnected(void) {
   return WiFi.status() == WL_CONNECTED;   
 }
 
-void ClearCookies() {
-  https.clearAllCookies();
-}
-
-int GetCurrentSg() {
-  return currentSg;
-}
-
-unsigned long GetCurrentSgDatetime() {
-  return currentSgDatetime;
-}
-
-String GetCurrentTrend() {
-  return currentTrend;
-}
-
-void connectToWiFi() {
+void CareLinkClient::Connect(void) {
+  Serial.println("Initializing WiFi connection started ");
   int TryCount = 0;
   while ( WiFi.status() != WL_CONNECTED ) {
     TryCount++;
     WiFi.disconnect();
-    WiFi.begin( GetSsid().c_str(), GetPassword().c_str() );
+    WiFi.begin( config.ssid.c_str(), config.password.c_str() );
     vTaskDelay( 5000 );
     if ( TryCount == 60 ) {
       ESP.restart();
     }
   }
+  Serial.println("Initializing WiFi connection done");
 }
 
-String ExtractParameter(const String& authReq, const String& param, const char delimit) {
+String CareLinkClient::ExtractParameter(const String& authReq, const String& param, const char delimit) {
   int _begin = authReq.indexOf(param.c_str());
   if (_begin == -1) 
   {    
@@ -77,7 +69,29 @@ String ExtractParameter(const String& authReq, const String& param, const char d
   return result;
 }
 
-bool GetLoginPage() {
+bool CareLinkClient::Login() {
+  Serial.println("  Authentication started");
+  https.clearAllCookies();
+  bool success = GetLoginPage();
+
+  if (success == true) {
+    success = SubmitLogin();
+  }
+
+  if (success == true) {
+    success = SubmitConsent();
+  }
+
+  if (success == true) {
+    Serial.println("  Authentication done");
+  } else {
+    Serial.println("  Authentication failed");
+  }
+
+  return success;
+}
+
+bool CareLinkClient::GetLoginPage(void) {
   Serial.print("  Get login page: ");
   if (https.begin(*client, F("https://carelink.minimed.eu/patient/sso/login?country=pl&lang=en"))) { //TODO country
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -106,10 +120,10 @@ bool GetLoginPage() {
   return false;
 }
 
-bool SubmitLogin () {
+bool CareLinkClient::SubmitLogin(void) {
   Serial.print("  Submit login: ");
   String url = "https://mdtlogin.medtronic.com/mmcl/auth/oauth/v2/authorize/login?locale=en&country=";
-  url += GetCareLinkCountry().c_str();
+  url += config.careLinkCountry.c_str();
   if (https.begin(*client, url)) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     https.setTimeout(60000);
@@ -117,7 +131,7 @@ bool SubmitLogin () {
     https.setReuse(true);
     https.addHeader(F("Content-Type"), F("application/x-www-form-urlencoded"));
 
-    content = String("sessionID=" + sessionId + "&sessionData=" + sessionData + "&locale=en&action=login&username=" + GetCareLinkUser() + "&password=" + GetCareLinkPassword() + "&actionButton=Log+in");    
+    content = String("sessionID=" + sessionId + "&sessionData=" + sessionData + "&locale=en&action=login&username=" + config.careLinkUser + "&password=" + config.careLinkPassword + "&actionButton=Log+in");    
     //Serial.printf("Content: %s\n", content.c_str());
     
     httpCode = https.POST(content);
@@ -148,7 +162,7 @@ bool SubmitLogin () {
   return false;
 }
 
-bool SubmitConsent() {
+bool CareLinkClient::SubmitConsent(void) {
   Serial.print("  Submit consent: ");
   if (https.begin(*client, consentUrl.c_str())) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -161,7 +175,7 @@ bool SubmitConsent() {
     https.addHeader(F("Origin"), F("https://mdtlogin.medtronic.com"));
     https.setReuse(true);
     String url = "https://mdtlogin.medtronic.com/mmcl/auth/oauth/v2/authorize/login?locale=en&country=";
-    url += GetCareLinkCountry().c_str();
+    url += config.careLinkCountry.c_str();
     https.addHeader(F("Referer"), url);
     
     content = String("action=consent&sessionID=" + consentSessionId + "&sessionData=" + consentSessionData + "&response_type=code&response_mode=query");
@@ -194,7 +208,7 @@ bool SubmitConsent() {
   return false;
 }
 
-bool GetData() {
+bool CareLinkClient::GetData(void) {
   Serial.print("  Get data: ");
   if (https.begin(*client, "https://clcloud.minimed.eu/connect/v2/display/message")) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -206,7 +220,7 @@ bool GetData() {
     https.setReuse(true);
     https.setAuthorizationType("Bearer");
     https.setAuthorization(authToken.c_str());
-    content = "{\"username\":\"" + GetCareLinkUser() + "\",\"role\":\"patient\"}";
+    content = "{\"username\":\"" + config.careLinkUser + "\",\"role\":\"patient\"}";
     httpCode = https.POST(content.c_str());
     Serial.println(httpCode);
 

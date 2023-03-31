@@ -1,16 +1,28 @@
-/////////////////////////////////////////////////////////////////////////////////
-// Display functions ////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////
+/*
+  Display.cpp
+
+  Copyright (c) 2023, Jakub Kuchta
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
 
 #include <Arduino.h>
-
 #include <FastLED.h>
+#include "Display.h"
+#include "Config.h"
 
-#define NUM_LEDS 64
-#define DATA_PIN 12
-//#define DATA_PIN 13
-
-CRGB leds[NUM_LEDS];
 CRGB ledOff = CHSV( 0, 0, 0);
 CRGB ledRed = CHSV( 0, 255, 255);
 CRGB ledYellow = CHSV( 40, 255, 255);
@@ -125,43 +137,46 @@ byte maskLogo[NUM_LEDS] =  {0,0,1,1,1,1,0,0,
                             0,1,1,1,1,1,1,0,
                             0,0,1,1,1,1,0,0,};
 
+Display::Display(Config &cfg) : config(cfg) 
+{ }
 
-void InitDisplay() {
+void Display::Init(void)
+{
+  Serial.print("Initializing LED display... ");
   FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);
+  Serial.println("Done");
 }
 
-void SetDisplayBrightness(uint8_t brightness) {
+void Display::SetBrightness(uint8_t brightness) {
   FastLED.setBrightness( brightness );
   FastLED.show();
 }
 
-CRGB GetColorFromSg(int sg) {
-  uint8_t* color = GetColors();
-  uint16_t* treshold = GetTresholds();
+CRGB Display::GetColorFromSg(int sg) {
   CRGB newColor;
-  if (sg >= 40 && sg <= treshold[0]) {  
-    newColor = CHSV( color[0], 255, 255);
-  } else if (sg <= treshold[1]) {  
-    newColor = CHSV( color[1], 255, 255);
-  } else if (sg <= treshold[2]) {  
-    newColor = CHSV( color[2], 255, 255);
-  } else if (sg <= treshold[3]) {  
-    newColor = CHSV( color[3], 255, 255);
-  } else if (sg <= treshold[4]) {  
-    newColor = CHSV( color[4], 255, 255);
-  } else if (sg <= treshold[5]) {  
-    newColor = CHSV( color[5], 255, 255);
-  } else if (sg <= treshold[6]) {  
-    newColor = CHSV( color[6], 255, 255);
+  if (sg >= 40 && sg <= config.treshold[0]) {  
+    newColor = CHSV( config.color[0], 255, 255);
+  } else if (sg <= config.treshold[1]) {  
+    newColor = CHSV( config.color[1], 255, 255);
+  } else if (sg <= config.treshold[2]) {  
+    newColor = CHSV( config.color[2], 255, 255);
+  } else if (sg <= config.treshold[3]) {  
+    newColor = CHSV( config.color[3], 255, 255);
+  } else if (sg <= config.treshold[4]) {  
+    newColor = CHSV( config.color[4], 255, 255);
+  } else if (sg <= config.treshold[5]) {  
+    newColor = CHSV( config.color[5], 255, 255);
+  } else if (sg <= config.treshold[6]) {  
+    newColor = CHSV( config.color[6], 255, 255);
   } else if (sg <= 400) {  
-    newColor = CHSV( color[7], 255, 255);
+    newColor = CHSV( config.color[7], 255, 255);
   } else {
     newColor = ledOff;
   }
   return newColor;
 }
 
-byte* GetArrowFromTrend(const String& trend) {
+byte* Display::GetArrowFromTrend(const String& trend) {
   String trendString = String(trend);
   if (trendString.equals("UP_TRIPLE")) {
     return maskTripleUp;
@@ -182,29 +197,28 @@ byte* GetArrowFromTrend(const String& trend) {
   } 
 }
 
-void DisplayRainbow() {
+void Display::Rainbow(void) {
   for (int i=0; i<NUM_LEDS; i++) {
     leds[i] = CHSV( (i/64.0) * 255, 255, 255); 
   }
   FastLED.show();
 }
 
-void DisplayFullScale() {
-  uint8_t* color = GetColors();
+void Display::FullScale() {
   for (int i=0; i<NUM_LEDS; i+=8) {
-      leds[i+0] = CHSV( color[0], 255, 255); 
-      leds[i+1] = CHSV( color[1], 255, 255);
-      leds[i+2] = CHSV( color[2], 255, 255);
-      leds[i+3] = CHSV( color[3], 255, 255);
-      leds[i+4] = CHSV( color[4], 255, 255);
-      leds[i+5] = CHSV( color[5], 255, 255);
-      leds[i+6] = CHSV( color[6], 255, 255);
-      leds[i+7] = CHSV( color[7], 255, 255);
+      leds[i+0] = CHSV( config.color[0], 255, 255); 
+      leds[i+1] = CHSV( config.color[1], 255, 255);
+      leds[i+2] = CHSV( config.color[2], 255, 255);
+      leds[i+3] = CHSV( config.color[3], 255, 255);
+      leds[i+4] = CHSV( config.color[4], 255, 255);
+      leds[i+5] = CHSV( config.color[5], 255, 255);
+      leds[i+6] = CHSV( config.color[6], 255, 255);
+      leds[i+7] = CHSV( config.color[7], 255, 255);
   }
   FastLED.show();
 }
 
-void DisplayLogo() {
+void Display::Logo(void) {
   for (int i=0; i<NUM_LEDS; i++) {
     if (maskLogo[i] == 1) {
       leds[i] = CHSV( map(i, 0, 63, 115, 240), 255, 255); 
@@ -215,7 +229,7 @@ void DisplayLogo() {
   FastLED.show();
 }
 
-void DisplayError(CRGB currentColor) {
+void Display::Error(CRGB currentColor) {
   for (int i=0; i<NUM_LEDS; i++) {
     if (maskError[i] == 1) {
       leds[i] = currentColor; 
@@ -226,23 +240,23 @@ void DisplayError(CRGB currentColor) {
   FastLED.show();
 }
 
-void DisplayRedError() {
-  DisplayError(ledRed);
+void Display::RedError(void) {
+  Error(ledRed);
 }
 
-void DisplayYellowError() {
-  DisplayError(ledYellow);
+void Display::YellowError(void) {
+  Error(ledYellow);
 }
 
-void DisplayBlueError() {
-  DisplayError(ledBlue);
+void Display::BlueError(void) {
+  Error(ledBlue);
 }
 
-void DisplayGreenError() {
-  DisplayError(ledGreen);
+void Display::GreenError(void) {
+  Error(ledGreen);
 }
 
-void DisplayArrow(byte* mask, int currentSg) {
+void Display::Arrow(byte* mask, int currentSg) {
   CRGB color = GetColorFromSg(currentSg);
   for (int i=0; i<NUM_LEDS; i++) {
     if (mask[i] == 1) {
@@ -254,55 +268,53 @@ void DisplayArrow(byte* mask, int currentSg) {
   FastLED.show();
 }
 
-void DisplayTripleUpArrow(int currentSg) {
-  DisplayArrow(maskTripleUp, currentSg);
+void Display::TripleUpArrow(int currentSg) {
+  Arrow(maskTripleUp, currentSg);
 }
 
-void DisplayDoubleUpArrow(int currentSg) {
-  DisplayArrow(maskDoubleUp, currentSg);
+void Display::DoubleUpArrow(int currentSg) {
+  Arrow(maskDoubleUp, currentSg);
 }
 
-void DisplayUpArrow(int currentSg) {
-  DisplayArrow(maskUp, currentSg);
+void Display::UpArrow(int currentSg) {
+  Arrow(maskUp, currentSg);
 }
 
-void DisplayStableArrow(int currentSg) {
-  DisplayArrow(maskStable, currentSg);
+void Display::StableArrow(int currentSg) {
+  Arrow(maskStable, currentSg);
 }
 
-void DisplayDownArrow(int currentSg) {
-  DisplayArrow(maskDown, currentSg);
+void Display::DownArrow(int currentSg) {
+  Arrow(maskDown, currentSg);
 }
 
-void DisplayDoubleDownArrow(int currentSg) {
-  DisplayArrow(maskDoubleDown, currentSg);
+void Display::DoubleDownArrow(int currentSg) {
+  Arrow(maskDoubleDown, currentSg);
 }
 
-void DisplayTripleDownArrow(int currentSg) {
-  DisplayArrow(maskTripleDown, currentSg);
+void Display::TripleDownArrow(int currentSg) {
+  Arrow(maskTripleDown, currentSg);
 }
 
-void DisplayTooHighArrow(int currentSg) {
-  DisplayArrow(maskHi, currentSg);
+void Display::TooHighArrow(int currentSg) {
+  Arrow(maskHi, currentSg);
 } 
 
-void DisplayTooLowArrow(int currentSg) {
-  DisplayArrow(maskLow, currentSg);
+void Display::TooLowArrow(int currentSg) {
+  Arrow(maskLow, currentSg);
 }
 
-void DisplayArrowFromTrend(const String& currentTrend, int currentSg) {
-  DisplayArrow(GetArrowFromTrend(currentTrend), currentSg);
+void Display::ArrowFromTrend(const String& currentTrend, int currentSg) {
+  Arrow(GetArrowFromTrend(currentTrend), currentSg);
 }
 
-void DisplayColor(CRGB currentColor) {
+void Display::FillColor(CRGB currentColor) {
   for (int i=0; i<NUM_LEDS; i++) {
     leds[i] = currentColor;
   }
   FastLED.show();
 }
 
-void ClearDisplay() {
-  DisplayColor(ledOff);
+void Display::ClearDisplay(void) {
+  FillColor(ledOff);
 }
-
-

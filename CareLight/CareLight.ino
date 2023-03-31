@@ -1,82 +1,44 @@
 #include <Arduino.h>
 #include <FastLED.h>
+#include "Config.h"
+#include "Display.h"
+#include "CareLinkClient.h"
 
-#define POLL_INTERVAL 61000
-
-int oneArrowDifference = 3;
-int twoArrowDifference = 12;
-int threeArrowDifference = 20;
+const unsigned long PollInterval = 61000;
+const int OneArrowDifference = 3;
+const int TwoArrowDifference = 12;
+const int ThreeArrowDifference = 20;
 
 unsigned long previousTime;
 unsigned long currentTime;
-unsigned long pollInterval;
+unsigned long lastSgDatetime;
 unsigned long lastSgDatetimeChange;
+int lastSg = 0;
+String lastTrend = "";
 bool newConnection;
 bool isAfterError;
 
-String lastTrend = "";
-int lastSg = 0;
-unsigned long lastSgDatetime = 0;
-
-                            
+Config config;
+Display display(config);
+CareLinkClient clClient(config);    
 
 void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println();
   Serial.println();
-
   Serial.println(F("\n\nStarting CareLight"));
 
-  Serial.print("Initializing LED display... ");
-  InitDisplay();
-  Serial.println("Done");
-
-  Serial.print("Initializing WiFi client... ");
-  InitCareLinkClient();
-  Serial.println("Done");  
-  
-  Serial.println("Reading configuration...");
-  if (!ArePreferencesSet()){
-    Serial.println("Configuration empty, entering setup");
-    DefaultPreferences();
-    SetDisplayBrightness(GetBrightness());   
-    DisplayLogo(); 
-    UpdatePreferences();
-    Serial.println("Configuration updated");
-    ESP.restart();
-  } else {
-    ReadPreferences();
-    PrintPreferences();
-    Serial.print("Press any key for setup (in 5 seconds)... ");
-    SetDisplayBrightness(GetBrightness());
-    DisplayLogo();
-    previousTime = millis();
-    while (1) {
-      if (Serial.available()) {
-        Serial.println("Entering setup");
-        UpdatePreferences();
-        Serial.println("Configuration updated");
-        ESP.restart();
-        break;
-      }
-      currentTime = millis();
-      if (currentTime - previousTime >= 5000) {
-        Serial.println("Skipped");
-        ClearDisplay();        
-        break;
-      }
-    }    
-  }
+  display.Init();
+  clClient.Init();
+  PrepareConfig();
 }
 
 void loop() {
-  if ( !IsClientConnected() ) {
-    Serial.println("Initializing WiFi connection started ");
-    DisplayYellowError();
-    connectToWiFi();
-    Serial.println("Initializing WiFi connection done");
-    DisplayGreenError();
+  if ( !clClient.IsConnected() ) {
+    display.YellowError();
+    clClient.Connect();
+    display.GreenError();
     previousTime = 0;
     lastSgDatetime = 0;
     lastSgDatetimeChange = millis();
@@ -84,25 +46,25 @@ void loop() {
   }  
 
   currentTime = millis();
-  if (currentTime - previousTime >= POLL_INTERVAL || newConnection) { 
+  if (currentTime - previousTime >= PollInterval || newConnection) { 
     bool currentDataReceived = PeriodicGetData();
 
     if (currentDataReceived) {
-      Serial.printf("CurrentTrend: %s  CurrentSg: %d  LastSG: %d  CurrentSgDatetime: %lu  LastSgDatetime: %lu  CurrentTime: %lu  LastSgDatetimeChange: %lu  IsAfterError: %s\n", GetCurrentTrend(), GetCurrentSg(), lastSg, GetCurrentSgDatetime(), lastSgDatetime, currentTime, lastSgDatetimeChange, isAfterError ? "true" : "false");
+      PrintData();
       
       // mamy dane do sprawdzenia (przyszedł inny timestamp albo recovery po błędzie)
-      if (GetCurrentSgDatetime() != lastSgDatetime || isAfterError) {
-        if (GetCurrentSg() != 0) {
+      if (clClient.currentSgDatetime != lastSgDatetime || isAfterError) {
+        if (clClient.currentSg != 0) {
           // mamy nowy odczyt
           Serial.println("  Updating display");
-          DisplayData();
+          DisplayData(clClient.currentSg, lastSg, clClient.currentSgDatetime, lastSgDatetime, clClient.currentTrend);
           lastSgDatetimeChange = currentTime;
-          lastSgDatetime = GetCurrentSgDatetime();
-          lastSg = GetCurrentSg();
+          lastSgDatetime = clClient.currentSgDatetime;
+          lastSg = clClient.currentSg;
         } else {
           // mamy 0
           Serial.println("  Stale data (Current SG = 0)"); //TODO: Filter out single readings with 0
-          DisplayBlueError();
+          display.BlueError();
         }
         // koniec recovery
         isAfterError = false;
@@ -113,16 +75,16 @@ void loop() {
       // brak nowych odczytów przez 10 min
       if (currentTime - lastSgDatetimeChange > 600000) {
         Serial.println("  Stale data (>10min)");
-        DisplayBlueError();
+        display.BlueError();
       }
 
     } else {
-      if (IsClientConnected()) {
+      if (clClient.IsConnected()) {
         Serial.println("  CareLink API error");
-        DisplayRedError();
+        display.RedError();
       } else {
         Serial.println("  WiFi connection lost");
-        DisplayYellowError();
+        display.YellowError();
       }
       isAfterError = true;
     }
@@ -132,125 +94,108 @@ void loop() {
   }
 }
 
+void PrepareConfig()
+{
+  Serial.println("Reading configuration...");
+  if (!config.IsSet()){
+    Serial.println("Configuration empty, entering setup");
+    config.SetDefaults();
+    display.SetBrightness(config.brightness);   
+    display.Logo(); 
+    config.Update();
+    Serial.println("Configuration updated");
+    ESP.restart();
+  } else {
+    config.Read();
+    config.Print();
+    Serial.print("Press any key for setup (in 5 seconds)... ");
+    display.SetBrightness(config.brightness);
+    display.Logo();
+    unsigned long startTime = millis();
+    while (1) {
+      if (Serial.available()) {
+        Serial.println("Entering setup");
+        config.Update();
+        Serial.println("Configuration updated");
+        ESP.restart();
+        break;
+      }
+      unsigned long now = millis();
+      if (now - startTime >= 5000) {
+        Serial.println("Skipped");
+        display.ClearDisplay();        
+        break;
+      }
+    }    
+  }  
+}
+
 bool PeriodicGetData() {
-  if (!GetData()) {    
-    if (!Login()) {       // If GetData failed
-      return false;       // And if Login failed - error
+  if (!clClient.GetData()) {    
+    if (!clClient.Login()) {      // If GetData failed
+      return false;               // And if Login failed - error
     } else {
-      if (!GetData()) {   // If Login succeded
-        return false;     // But GetData still fails - error
+      if (!clClient.GetData()) {  // If Login succeded
+        return false;             // But GetData still fails - error
       }
     }
   }
-  // GetData succeded
-  return true;
+  
+  return true;                    // GetData succeded
 }
-                //currentSg, lastSg, currentTrend, currentSgDatetime, lastSgDatetime
-void DisplayData() {  
-  int currentSg = GetCurrentSg();
+
+void PrintData()
+{
+  Serial.printf("CurrentTrend: %s  CurrentSg: %d  LastSG: %d  CurrentSgDatetime: %lu  LastSgDatetime: %lu  CurrentTime: %lu  LastSgDatetimeChange: %lu  IsAfterError: %s\n", clClient.currentTrend, clClient.currentSg, lastSg, clClient.currentSgDatetime, lastSgDatetime, currentTime, lastSgDatetimeChange, isAfterError ? "true" : "false");
+}
+
+void DisplayData(int currentSg, int previousSg, unsigned long currentSgDatetime, unsigned long previousSgDatetime, const String& currentTrend) 
+{  
   if (currentSg >= 400) {
     Serial.println("  Current SG over 400");
-    DisplayTooHighArrow(currentSg);
+    display.TooHighArrow(currentSg);
   } else if (currentSg <= 40) {
     Serial.println("  Current SG under 40");
-    DisplayTooLowArrow(currentSg);
-  } else if(lastSg == 0) {
+    display.TooLowArrow(currentSg);
+  } else if(previousSg == 0) {
     Serial.println("  No last SG, using arrow from current trend");
-    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
-  } else if(GetCurrentSgDatetime() <= lastSgDatetime) {
+    display.ArrowFromTrend(currentTrend, currentSg);
+  } else if(currentSgDatetime <= previousSgDatetime) {
     Serial.println("  Wrong timestamp, using arrow from current trend");
-    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
+    display.ArrowFromTrend(currentTrend, currentSg);
   } else {
-    int deltaSg = abs(currentSg - lastSg);
-    Serial.printf("  DeltaSg: %d  ", deltaSg);
-    int deltaTimeMinutes = (GetCurrentSgDatetime() - lastSgDatetime) / 60;
-    Serial.printf("DeltaTime: %d  ", deltaTimeMinutes);
-    float slopePer5min = (deltaSg * 5.0) / deltaTimeMinutes;
-    Serial.printf("Slope: %f\n", slopePer5min);
-    bool rising = currentSg >= lastSg;
-    if (slopePer5min >= threeArrowDifference && rising) {
-      DisplayTripleUpArrow(currentSg);
-    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && rising) {
-      DisplayDoubleUpArrow(currentSg);
-    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && rising) {
-      DisplayUpArrow(currentSg);
-    } else if (slopePer5min < oneArrowDifference) {
-      DisplayStableArrow(currentSg);
-    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && !rising) {
-      DisplayDownArrow(currentSg);
-    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && !rising) {
-      DisplayDoubleDownArrow(currentSg);
-    } else if (slopePer5min >= threeArrowDifference && !rising) {
-      DisplayTripleDownArrow(currentSg);
+    float calculatedTrend = CalculateTrend(currentSg, previousSg, currentSgDatetime, previousSgDatetime);
+    if (calculatedTrend >= ThreeArrowDifference) {
+      display.TripleUpArrow(currentSg);
+    } else if (calculatedTrend >= TwoArrowDifference) {
+      display.DoubleUpArrow(currentSg);
+    } else if (calculatedTrend >= OneArrowDifference) {
+      display.UpArrow(currentSg);
+    } else if (calculatedTrend > -OneArrowDifference) {
+      display.StableArrow(currentSg);
+    } else if (calculatedTrend > -TwoArrowDifference) {
+      display.DownArrow(currentSg);
+    } else if (calculatedTrend > -ThreeArrowDifference) {
+      display.DoubleDownArrow(currentSg);
+    } else if (calculatedTrend <= -ThreeArrowDifference) {
+      display.TripleDownArrow(currentSg);
     } else {
-      ClearDisplay();
+      display.ClearDisplay();
     }
   }
 }
 
-void GetSlope() {  
-  int currentSg = GetCurrentSg();
-  if (currentSg >= 400) {
-    Serial.println("  Current SG over 400");
-    DisplayTooHighArrow(currentSg);
-  } else if (currentSg <= 40) {
-    Serial.println("  Current SG under 40");
-    DisplayTooLowArrow(currentSg);
-  } else if(lastSg == 0) {
-    Serial.println("  No last SG, using arrow from current trend");
-    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
-  } else if(GetCurrentSgDatetime() <= lastSgDatetime) {
-    Serial.println("  Wrong timestamp, using arrow from current trend");
-    DisplayArrowFromTrend(GetCurrentTrend(), currentSg);
-  } else {
-    int deltaSg = abs(currentSg - lastSg);
-    Serial.printf("  DeltaSg: %d  ", deltaSg);
-    int deltaTimeMinutes = (GetCurrentSgDatetime() - lastSgDatetime) / 60;
-    Serial.printf("DeltaTime: %d  ", deltaTimeMinutes);
-    float slopePer5min = (deltaSg * 5.0) / deltaTimeMinutes;
-    Serial.printf("Slope: %f\n", slopePer5min);
-    bool rising = currentSg >= lastSg;
-    if (slopePer5min >= threeArrowDifference && rising) {
-      DisplayTripleUpArrow(currentSg);
-    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && rising) {
-      DisplayDoubleUpArrow(currentSg);
-    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && rising) {
-      DisplayUpArrow(currentSg);
-    } else if (slopePer5min < oneArrowDifference) {
-      DisplayStableArrow(currentSg);
-    } else if (slopePer5min >= oneArrowDifference && slopePer5min < twoArrowDifference && !rising) {
-      DisplayDownArrow(currentSg);
-    } else if (slopePer5min >= twoArrowDifference && slopePer5min < threeArrowDifference && !rising) {
-      DisplayDoubleDownArrow(currentSg);
-    } else if (slopePer5min >= threeArrowDifference && !rising) {
-      DisplayTripleDownArrow(currentSg);
-    } else {
-      ClearDisplay();
-    }
+float CalculateTrend(int sg, int previousSg, unsigned long datetime, unsigned long previousDatetime) {
+  if(datetime < previousDatetime) {
+    Serial.println("  Current SG datetime older than last SG datetime, no slope calculation");
+    return 0;
   }
+  int deltaSg = sg - previousSg;
+  Serial.printf("  DeltaSg: %d  ", deltaSg);
+  int deltaTimeMinutes = (datetime - previousDatetime) / 60;
+  Serial.printf("DeltaTime: %d  ", deltaTimeMinutes);
+  float slopePer5min = (deltaSg * 5.0) / deltaTimeMinutes;
+  Serial.printf("Slope: %f\n", slopePer5min);
+  return slopePer5min;
 }
-
-
-bool Login() {
-  Serial.println("  Authentication started");
-  ClearCookies();
-  bool success = GetLoginPage();
-
-  if (success == true) {
-    success = SubmitLogin();
-  }
-
-  if (success == true) {
-    success = SubmitConsent();
-  }
-
-  if (success == true) {
-    Serial.println("  Authentication done");
-  } else {
-    Serial.println("  Authentication failed");
-  }
-
-  return success;
-}
-
 

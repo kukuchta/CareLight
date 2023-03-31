@@ -1,22 +1,31 @@
-/////////////////////////////////////////////////////////////////////////////////
-// Preferences handling functions ///////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////
+/*
+  Config.cpp
+
+  Copyright (c) 2023, Jakub Kuchta
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
 
 #include <Arduino.h>
+#include "Config.h"
 
-#include <Preferences.h>
+Config::Config(void)
+{ }
 
-Preferences preferences;
-String ssid = "";  
-String password = "";
-String careLinkUser = "";
-String careLinkPassword = "";
-String careLinkCountry = "";
-uint8_t brightness = 255;
-uint8_t color[8] = { 0,0,0,0,0,0,0,0};
-uint16_t treshold[7] = { 0,0,0,0,0,0,0};
-
-void DefaultPreferences(){ 
+void Config::SetDefaults(void)
+{
   ssid = "ssid";  
   password = "password";
   careLinkUser = "user";
@@ -42,46 +51,14 @@ void DefaultPreferences(){
   color[7] = 1;
 }
 
-String GetSsid() {
-  return ssid;
-}
-
-String GetPassword() {
-  return password;
-}
-
-String GetCareLinkUser() {
-  return careLinkUser;
-}
-
-String GetCareLinkPassword() {
-  return careLinkPassword;
-}
-
-String GetCareLinkCountry() {
-  return careLinkCountry;
-}
-
-uint8_t GetBrightness() {
-  return brightness;
-}
-
-uint8_t* GetColors() {
-  return color;
-}
-
-uint16_t* GetTresholds() {
-  return treshold;
-}
-
-bool ArePreferencesSet() {
+bool Config::IsSet(void) {
   preferences.begin("config", false);
   bool result = preferences.isKey("WIFI_SSID");
   preferences.end();
   return result;
 }
 
-void UpdatePreferences(){
+void Config::Update(void){
   preferences.begin("config", false);
   preferences.clear();
   while (Serial.available() > 0) {
@@ -94,7 +71,7 @@ void UpdatePreferences(){
   PromptAndReadLineDefault("CareLink country code", "CARELINK_CNTRY", careLinkCountry.c_str());
 
   brightness = StoreInt("LED brightness", "BRIGHTNESS", brightness, 1, 255);
-  FastLED.setBrightness( brightness );  
+  //FastLED.setBrightness( brightness );  TODO
   
   Serial.println("\nSetup 8 glucose ranges, each with different color.");
   Serial.println("Possible hue values are 1-255, where: \n 1 - Red,\n 12 - Dark orange,\n 22 - Orange,\n 40 - Yellow,\n 96 - Green,\n 128 - Cyan,\n 160 - Blue,\n 192 - Violet,\n 255 - Red\n");
@@ -136,11 +113,11 @@ void UpdatePreferences(){
 
   Serial.println("Highest range from " + String(treshold[6] + 1) + " to 400 mg/dl - set color hue.");
   color[7] = StoreColor("  Color 8", "COLOR_8", color[7], 1, 255);
-  ClearDisplay();
+  //ClearDisplay(); TODO
   preferences.end();
 }
 
-void ReadPreferences(){ 
+void Config::Read(void){ 
   preferences.begin("config", false);
 
   ssid = preferences.getString("WIFI_SSID");  
@@ -170,7 +147,7 @@ void ReadPreferences(){
   preferences.end();
 }
 
-void PrintPreferences(){ 
+void Config::Print(void){ 
   Serial.print("  WiFi: ");
   Serial.println(ssid);
   Serial.print("  CareLink user: ");
@@ -195,7 +172,7 @@ void PrintPreferences(){
   } 
 }
 
-uint16_t StoreInt(const char* prompt, const char* key, uint16_t defaultValue, uint16_t minValue, uint16_t maxValue) {
+uint16_t Config::StoreInt(const char* prompt, const char* key, uint16_t defaultValue, uint16_t minValue, uint16_t maxValue) {
   bool resultNotOk = false;
   uint16_t value = 0;
   
@@ -222,7 +199,7 @@ uint16_t StoreInt(const char* prompt, const char* key, uint16_t defaultValue, ui
   return value;
 }
 
-uint8_t StoreColor(const char* prompt, const char* key, uint8_t defaultValue, uint8_t minValue, uint8_t maxValue) {
+uint8_t Config::StoreColor(const char* prompt, const char* key, uint8_t defaultValue, uint8_t minValue, uint8_t maxValue) {
   bool ready = false;
   uint8_t value = 0;
   
@@ -241,7 +218,7 @@ uint8_t StoreColor(const char* prompt, const char* key, uint8_t defaultValue, ui
     if (valueInvalid) {
       Serial.println("Error, value outside range.");
     } else {
-      DisplayColor(CHSV( value, 255, 255));     
+      //DisplayColor(CHSV( value, 255, 255));     TODO
       Serial.print(value);
       Serial.print("  Confirm? [y/n] ");
       
@@ -268,7 +245,7 @@ uint8_t StoreColor(const char* prompt, const char* key, uint8_t defaultValue, ui
   return value;
 }
 
-void PromptAndReadLineDefault(const char* prompt, const char* key, const char* defaultValue) {
+void Config::PromptAndReadLineDefault(const char* prompt, const char* key, const char* defaultValue) {
   Serial.print(prompt);
   Serial.print(" [Enter for '");
   Serial.print(defaultValue);
@@ -283,14 +260,14 @@ void PromptAndReadLineDefault(const char* prompt, const char* key, const char* d
   }
 }
 
-String PromptAndReadLine(const char* prompt) {
+String Config::PromptAndReadLine(const char* prompt) {
   Serial.print(prompt);
   String s = readLine();
   Serial.println(s);
   return s;
 }
 
-String readLine() {
+String Config::readLine(void) {
   String line;
 
   while (1) {
