@@ -1,27 +1,25 @@
 /*
-  Display.cpp
+ Display.cpp is a part of CareLight program
+ Copyright 2023 Jakub Kuchta
 
-  Copyright (c) 2023, Jakub Kuchta
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>
 */
 
 #include <Arduino.h>
 #include <FastLED.h>
-#include "Display.h"
-#include "Config.h"
+#include "Display.h" //ok
+#include "Config.h" //ok
 
 CRGB ledOff = CHSV( 0, 0, 0);
 CRGB ledRed = CHSV( 0, 255, 255);
@@ -137,7 +135,7 @@ byte maskLogo[NUM_LEDS] =  {0,0,1,1,1,1,0,0,
                             0,1,1,1,1,1,1,0,
                             0,0,1,1,1,1,0,0,};
 
-Display::Display(Config &cfg) : config(cfg) 
+Display::Display(Config& cfg) : config(cfg) 
 { }
 
 void Display::Init(void)
@@ -149,49 +147,37 @@ void Display::Init(void)
 
 void Display::SetBrightness(uint8_t brightness) {
   FastLED.setBrightness( brightness );
-  FastLED.show();
 }
 
-CRGB Display::GetColorFromSg(int sg) {
-  CRGB newColor;
-  if (sg >= 40 && sg <= config.treshold[0]) {  
-    newColor = CHSV( config.color[0], 255, 255);
-  } else if (sg <= config.treshold[1]) {  
-    newColor = CHSV( config.color[1], 255, 255);
-  } else if (sg <= config.treshold[2]) {  
-    newColor = CHSV( config.color[2], 255, 255);
-  } else if (sg <= config.treshold[3]) {  
-    newColor = CHSV( config.color[3], 255, 255);
-  } else if (sg <= config.treshold[4]) {  
-    newColor = CHSV( config.color[4], 255, 255);
-  } else if (sg <= config.treshold[5]) {  
-    newColor = CHSV( config.color[5], 255, 255);
-  } else if (sg <= config.treshold[6]) {  
-    newColor = CHSV( config.color[6], 255, 255);
-  } else if (sg <= 400) {  
-    newColor = CHSV( config.color[7], 255, 255);
-  } else {
-    newColor = ledOff;
-  }
-  return newColor;
+void Display::Arrow(ArrowType type, uint8_t hue) {
+  byte* mask = GetArrowMask(type);
+  CRGB color = GetArrowColor(hue);
+  DisplayMask(mask, color);
 }
 
-byte* Display::GetArrowFromTrend(const String& trend) {
-  String trendString = String(trend);
-  if (trendString.equals("UP_TRIPLE")) {
+CRGB Display::GetArrowColor(uint8_t hue) {
+  return CHSV( hue, 255, 255);
+}
+
+byte* Display::GetArrowMask(ArrowType type) {
+  if (type == UP_TRIPLE) {
     return maskTripleUp;
-  } else if (trendString.equals("UP_DOUBLE")) {
+  } else if (type == UP_DOUBLE) {
     return maskDoubleUp;
-  } else if (trendString.equals("UP")) {
+  } else if (type == UP) {
     return maskUp;
-  } else if (trendString.equals("NONE")) {
+  } else if (type == STABLE) {
     return maskStable;
-  } else if (trendString.equals("DOWN")) {
+  } else if (type == DOWN) {
     return maskDown;
-  } else if (trendString.equals("DOWN_DOUBLE")) {
+  } else if (type == DOWN_DOUBLE) {
     return maskDoubleDown;
-  } else if (trendString.equals("DOWN_TRIPLE")) {
+  } else if (type == DOWN_TRIPLE) {
     return maskTripleDown;
+  } else if (type == TOO_HIGH) {
+    return maskHi;
+  } else if (type == TOO_LOW) {
+    return maskLow;
   } else {
     return maskEmpty;
   } 
@@ -201,7 +187,6 @@ void Display::Rainbow(void) {
   for (int i=0; i<NUM_LEDS; i++) {
     leds[i] = CHSV( (i/64.0) * 255, 255, 255); 
   }
-  FastLED.show();
 }
 
 void Display::FullScale() {
@@ -215,7 +200,6 @@ void Display::FullScale() {
       leds[i+6] = CHSV( config.color[6], 255, 255);
       leds[i+7] = CHSV( config.color[7], 255, 255);
   }
-  FastLED.show();
 }
 
 void Display::Logo(void) {
@@ -226,95 +210,53 @@ void Display::Logo(void) {
       leds[i] = ledOff;
     }
   }
-  FastLED.show();
-}
-
-void Display::Error(CRGB currentColor) {
-  for (int i=0; i<NUM_LEDS; i++) {
-    if (maskError[i] == 1) {
-      leds[i] = currentColor; 
-    } else {
-      leds[i] = ledOff;
-    }
-  }
-  FastLED.show();
 }
 
 void Display::RedError(void) {
-  Error(ledRed);
+  DisplayMask(maskError, ledRed);
 }
 
 void Display::YellowError(void) {
-  Error(ledYellow);
+  DisplayMask(maskError, ledYellow);
 }
 
 void Display::BlueError(void) {
-  Error(ledBlue);
+  DisplayMask(maskError, ledBlue);
 }
 
 void Display::GreenError(void) {
-  Error(ledGreen);
+  DisplayMask(maskError, ledGreen);
 }
 
-void Display::Arrow(byte* mask, int currentSg) {
-  CRGB color = GetColorFromSg(currentSg);
-  for (int i=0; i<NUM_LEDS; i++) {
-    if (mask[i] == 1) {
+void Display::DisplayMask(byte* mask, CRGB color) 
+{
+  for (int i=0; i<NUM_LEDS; i++) 
+  {
+    if (mask[i] == 1) 
+    {
       leds[i] = color;
-    } else {
+    } 
+    else 
+    {
       leds[i] = ledOff;
     }
   }
-  FastLED.show();
 }
 
-void Display::TripleUpArrow(int currentSg) {
-  Arrow(maskTripleUp, currentSg);
-}
-
-void Display::DoubleUpArrow(int currentSg) {
-  Arrow(maskDoubleUp, currentSg);
-}
-
-void Display::UpArrow(int currentSg) {
-  Arrow(maskUp, currentSg);
-}
-
-void Display::StableArrow(int currentSg) {
-  Arrow(maskStable, currentSg);
-}
-
-void Display::DownArrow(int currentSg) {
-  Arrow(maskDown, currentSg);
-}
-
-void Display::DoubleDownArrow(int currentSg) {
-  Arrow(maskDoubleDown, currentSg);
-}
-
-void Display::TripleDownArrow(int currentSg) {
-  Arrow(maskTripleDown, currentSg);
-}
-
-void Display::TooHighArrow(int currentSg) {
-  Arrow(maskHi, currentSg);
-} 
-
-void Display::TooLowArrow(int currentSg) {
-  Arrow(maskLow, currentSg);
-}
-
-void Display::ArrowFromTrend(const String& currentTrend, int currentSg) {
-  Arrow(GetArrowFromTrend(currentTrend), currentSg);
-}
-
-void Display::FillColor(CRGB currentColor) {
-  for (int i=0; i<NUM_LEDS; i++) {
+void Display::FillColor(CRGB currentColor) 
+{
+  for (int i=0; i<NUM_LEDS; i++) 
+  {
     leds[i] = currentColor;
   }
-  FastLED.show();
 }
 
-void Display::ClearDisplay(void) {
+void Display::ClearDisplay(void) 
+{
   FillColor(ledOff);
+}
+
+void Display::Update(void)
+{
+  FastLED.show();
 }

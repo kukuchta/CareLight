@@ -1,25 +1,25 @@
 /*
-  Config.cpp
+ Config.cpp is a part of CareLight program
+ Copyright 2023 Jakub Kuchta
 
-  Copyright (c) 2023, Jakub Kuchta
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>
 */
 
 #include <Arduino.h>
-#include "Config.h"
+#include <Preferences.h>
+#include "Config.h" //ok
+#include "Display.h" //ok
 
 Config::Config(void)
 { }
@@ -51,6 +51,44 @@ void Config::SetDefaults(void)
   color[7] = 1;
 }
 
+void Config::Init(Display& display)
+{
+  Serial.println("Reading configuration...");
+  if (!IsSet()){
+    Serial.println("Configuration empty, entering setup");
+    SetDefaults();
+    display.SetBrightness(brightness);   
+    display.Logo(); 
+    display.Update();
+    Update(display);
+    Serial.println("Configuration updated");
+    ESP.restart();
+  } else {
+    Read();
+    Print();
+    Serial.print("Press any key for setup (in 5 seconds)... ");
+    display.SetBrightness(brightness);
+    display.Logo();
+    display.Update();
+    unsigned long startTime = millis();
+    while (1) {
+      if (Serial.available()) {
+        Serial.println("Entering setup");
+        Update(display);
+        Serial.println("Configuration updated");
+        ESP.restart();
+        break;
+      }
+      unsigned long now = millis();
+      if (now - startTime >= 5000) {
+        Serial.println("Skipped");
+        display.ClearDisplay();        
+        break;
+      }
+    }    
+  }  
+}
+
 bool Config::IsSet(void) {
   preferences.begin("config", false);
   bool result = preferences.isKey("WIFI_SSID");
@@ -58,7 +96,7 @@ bool Config::IsSet(void) {
   return result;
 }
 
-void Config::Update(void){
+void Config::Update(Display& display){
   preferences.begin("config", false);
   preferences.clear();
   while (Serial.available() > 0) {
@@ -71,7 +109,8 @@ void Config::Update(void){
   PromptAndReadLineDefault("CareLink country code", "CARELINK_CNTRY", careLinkCountry.c_str());
 
   brightness = StoreInt("LED brightness", "BRIGHTNESS", brightness, 1, 255);
-  //FastLED.setBrightness( brightness );  TODO
+  display.SetBrightness(brightness);
+  display.Update();  
   
   Serial.println("\nSetup 8 glucose ranges, each with different color.");
   Serial.println("Possible hue values are 1-255, where: \n 1 - Red,\n 12 - Dark orange,\n 22 - Orange,\n 40 - Yellow,\n 96 - Green,\n 128 - Cyan,\n 160 - Blue,\n 192 - Violet,\n 255 - Red\n");
@@ -79,41 +118,42 @@ void Config::Update(void){
   Serial.println("Lowest range from 40 mg/dl - set maximum value.");
   treshold[0] = StoreInt("  Treshold 1", "TRESHOLD_1", treshold[0], 41, 393);
   Serial.println("Lowest range from 40 to " + String(treshold[0]) + " mg/dl - set color hue.");
-  color[0] = StoreColor("  Color 1", "COLOR_1", color[0], 1, 255);
+  color[0] = StoreColor(display, "  Color 1", "COLOR_1", color[0], 1, 255);
 
   Serial.println("Range 2 from " + String(treshold[0] + 1) + " mg/dl - set maximum value.");
   treshold[1] = StoreInt("  Treshold 2", "TRESHOLD_2", treshold[1], (treshold[0] + 1), 394);
   Serial.println("Range 2 from " + String(treshold[0] + 1) + " to " + String(treshold[1]) + " mg/dl - set color hue.");
-  color[1] = StoreColor("  Color 2", "COLOR_2", color[1], 1, 255);
+  color[1] = StoreColor(display, "  Color 2", "COLOR_2", color[1], 1, 255);
 
   Serial.println("Range 3 from " + String(treshold[1] + 1) + " mg/dl - set maximum value.");
   treshold[2] = StoreInt("  Treshold 3", "TRESHOLD_3", treshold[2], (treshold[1] + 1), 395);
   Serial.println("Range 3 from " + String(treshold[1] + 1) + " to " + String(treshold[2]) + " mg/dl - set color hue.");
-  color[2] = StoreColor("  Color 3", "COLOR_3", color[2], 1, 255);
+  color[2] = StoreColor(display, "  Color 3", "COLOR_3", color[2], 1, 255);
 
   Serial.println("Range 4 from " + String(treshold[2] + 1) + " mg/dl - set maximum value.");
   treshold[3] = StoreInt("  Treshold 4", "TRESHOLD_4", treshold[3], (treshold[2] + 1), 396);
   Serial.println("Range 4 from " + String(treshold[2] + 1) + " to " + String(treshold[3]) + " mg/dl - set color hue.");
-  color[3] = StoreColor("  Color 4", "COLOR_4", color[3], 1, 255);
+  color[3] = StoreColor(display, "  Color 4", "COLOR_4", color[3], 1, 255);
 
   Serial.println("Range 5 from " + String(treshold[3] + 1) + " mg/dl - set maximum value.");
   treshold[4] = StoreInt("  Treshold 5", "TRESHOLD_5", treshold[4], (treshold[3] + 1), 397);
   Serial.println("Range 5 from " + String(treshold[3] + 1) + " to " + String(treshold[4]) + " mg/dl - set color hue.");
-  color[4] = StoreColor("  Color 5", "COLOR_5", color[4], 1, 255);
+  color[4] = StoreColor(display, "  Color 5", "COLOR_5", color[4], 1, 255);
 
   Serial.println("Range 6 from " + String(treshold[4] + 1) + " mg/dl - set maximum value.");
   treshold[5] = StoreInt("  Treshold 6", "TRESHOLD_6", treshold[5], (treshold[4] + 1), 398);
   Serial.println("Range 6 from " + String(treshold[4] + 1) + " to " + String(treshold[5]) + " mg/dl - set color hue.");
-  color[5] = StoreColor("  Color 6", "COLOR_6", color[5], 1, 255);
+  color[5] = StoreColor(display, "  Color 6", "COLOR_6", color[5], 1, 255);
 
   Serial.println("Range 7 from " + String(treshold[5] + 1) + " mg/dl - set maximum value.");
   treshold[6] = StoreInt("  Treshold 7", "TRESHOLD_7", treshold[6], (treshold[5] + 1), 399);
   Serial.println("Range 7 from " + String(treshold[5] + 1) + " to " + String(treshold[6]) + " mg/dl - set color hue.");
-  color[6] = StoreColor("  Color 7", "COLOR_7", color[6], 1, 255);
+  color[6] = StoreColor(display, "  Color 7", "COLOR_7", color[6], 1, 255);
 
   Serial.println("Highest range from " + String(treshold[6] + 1) + " to 400 mg/dl - set color hue.");
-  color[7] = StoreColor("  Color 8", "COLOR_8", color[7], 1, 255);
-  //ClearDisplay(); TODO
+  color[7] = StoreColor(display, "  Color 8", "COLOR_8", color[7], 1, 255);
+  display.ClearDisplay();
+  display.Update();
   preferences.end();
 }
 
@@ -179,7 +219,7 @@ uint16_t Config::StoreInt(const char* prompt, const char* key, uint16_t defaultV
   do {
     Serial.print(prompt);
     Serial.print(" (" + String(minValue) + "-" + String(maxValue) + ") [Enter for '" + String(defaultValue) + "']: ");
-    String s = readLine();
+    String s = ReadLine();
     value = 0;
     if (s != ""){
       value = atoi(s.c_str());  
@@ -199,14 +239,14 @@ uint16_t Config::StoreInt(const char* prompt, const char* key, uint16_t defaultV
   return value;
 }
 
-uint8_t Config::StoreColor(const char* prompt, const char* key, uint8_t defaultValue, uint8_t minValue, uint8_t maxValue) {
+uint8_t Config::StoreColor(Display& display, const char* prompt, const char* key, uint8_t defaultValue, uint8_t minValue, uint8_t maxValue) {
   bool ready = false;
   uint8_t value = 0;
   
   do {
     Serial.print(prompt);
     Serial.print(" (" + String(minValue) + "-" + String(maxValue) + ") [Enter for '" + String(defaultValue) + "']: ");
-    String s = readLine();
+    String s = ReadLine();
     value = 0;
     if (s != ""){
       value = atoi(s.c_str());  
@@ -218,7 +258,8 @@ uint8_t Config::StoreColor(const char* prompt, const char* key, uint8_t defaultV
     if (valueInvalid) {
       Serial.println("Error, value outside range.");
     } else {
-      //DisplayColor(CHSV( value, 255, 255));     TODO
+      display.FillColor(CHSV( value, 255, 255));
+      display.Update();
       Serial.print(value);
       Serial.print("  Confirm? [y/n] ");
       
@@ -250,7 +291,7 @@ void Config::PromptAndReadLineDefault(const char* prompt, const char* key, const
   Serial.print(" [Enter for '");
   Serial.print(defaultValue);
   Serial.print("']: ");
-  String s = readLine();
+  String s = ReadLine();
   if (s != ""){
     Serial.println(s);
     preferences.putString(key, s);
@@ -262,12 +303,12 @@ void Config::PromptAndReadLineDefault(const char* prompt, const char* key, const
 
 String Config::PromptAndReadLine(const char* prompt) {
   Serial.print(prompt);
-  String s = readLine();
+  String s = ReadLine();
   Serial.println(s);
   return s;
 }
 
-String Config::readLine(void) {
+String Config::ReadLine(void) {
   String line;
 
   while (1) {
