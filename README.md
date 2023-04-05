@@ -32,9 +32,10 @@ This project is licensed under terms of [GNU General Public License v3.0](./LICE
 * Easy configuration through any terminal application over USB cable
 
 ## Hardware requirements
+* More informations about used hardware can be found [here](./Documents/Hardware.md).
 * Controller board (any following):
   * ESP-WROOM-32 board
-  * Wemos Lolin32 Lite (with hardware modification, cheaper, with Li-Poly battery support)
+  * Wemos Lolin32 Lite (with hardware modification)
 * Display board:
   * 8x8 WS2812B RGB LED array board
 
@@ -45,3 +46,7 @@ This project is licensed under terms of [GNU General Public License v3.0](./LICE
   * ArduinoJson library by Benoit Blanchon >= v6.21.1
   * StreamUtils library by Benoit Blanchon >= v1.7.3 (to be removed)
 * CH340G USB-to-serial Drivers 
+
+## Setup and manual
+* Setup, programming manual process is explained [here](./Documents/Setup.md).
+* Short manual can be found [here](./Documents/Manual.md).
