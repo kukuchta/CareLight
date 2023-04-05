@@ -1,4 +1,4 @@
-# Manual
+# Setup
 There are several steps to setup working CareLight. They will be described for ESP-WROOM-32 main board as it requires least effort.
 
 ## Hardware assembly
