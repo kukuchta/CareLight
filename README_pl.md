@@ -1,5 +1,5 @@
 # CareLight
-CareLight to prosty wskaźnik LED z obsługą WiFi do wyświetlania poziomu i trendu glukozy dla osób z cukrzycą korzystających z pomp insulinowych 740g/780g od firmy Medtronic. Urządzenie łączy się z chmurą CareLink firmy Medtronic, z której pobierane są aktualne dane o poziomie glukozy.
+CareLight to wyświetlacz LED z obsługą WiFi do wskazywania bieżącego poziomu i trendu glukozy dla osób z cukrzycą korzystających z pomp insulinowych 740g/780g firmy Medtronic. Urządzenie łączy się z chmurą CareLink, z której pobierane są aktualne dane.
 
 Projekt jest wciąż w fazie wczesnego rozwoju i może istnieć więcej ograniczeń, których nie jestem świadomy. Urządzenie zostało przetestowane na pompie 740G i koncie CareLink stworzonym dla pacjenta w Polsce. Wszelkie testy i raportowane problemy związane z innymi konfiguracjami będą bardzo pomocne.
 
