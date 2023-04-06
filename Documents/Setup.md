@@ -12,7 +12,7 @@ Use three female to female DuPont wires to make connections:
 ## Programming
 
 1. Connect main board to the computer with mini USB cable to check if it is recognized as COM port.
-  * Find in menu Start and open the Device Manager (Menadżer Urządzeń) 
+  * Find in menu Start and open the Device Manager
   * Look under Ports (COM & LPT) for:
   
     ![Device manager](./Media/DevMan.png "Device manager")
