@@ -26,10 +26,12 @@ Use three female to female DuPont wires to make connections:
 5. Download CareLight source code from this repository:
 
     ![Get source](./Media/GetSource.png "Get source")
+    
 6. Open CareLink.ino with Arduino IDE
 7. Setup following parameters under Tools menu:
 
     ![Params](./Media/Params.png "Params")
+    
   Where Port should be the COM port number fonund earlier in the Windows Device Manager.
 8. Hit upload button.
 
