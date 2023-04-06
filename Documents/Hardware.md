@@ -15,7 +15,7 @@ Many boards have only 3.3V output pins as this is the voltage that ESP32 works w
 
 ### Lolin32 modification
 
-This particular board is worth trying because its smaller than ESP-WROOM-32, much cheaper and provides support for Li-Poly battery charging without any additional hardware (Carelight can be truly wireless for some time :D).
+This particular board is worth trying because its smaller than ESP-WROOM-32, much cheaper and provides support for Li-Poly battery charging without any additional hardware (CareLight can be truly wireless for some time :).
 
 To turn pin GPIO 14 into +4.5V voltage source:
 1. Cut the thin path leading to pin 14 with sharp knife (we disconnect it from the ESP32 chip)
@@ -25,7 +25,7 @@ This way we have three neighbouring pins - G, 12 and 14 (turned into +V) - ready
 
 ## LED array board
 
-Program is intended to display data on the array of 64 WS2812B RGB LEDs shaped into 8x8 pattern. LEDs should be connected in a way where LED index in every row increases from left to right, and last LED in a row is connected with first led in next row (no alternating rows). It is most common LED layout on cheap modules available on allegro (find [here](https://allegro.pl/listing?string=8x8%20ws2812b)) or china markets ([here](https://aliexpress.com/w/wholesale-8x8-ws2812b.html).
+Program is intended to display data on the array of 64 WS2812B RGB LEDs shaped into 8x8 pattern. LEDs should be connected in a way where LED index in every row increases from left to right, and last LED in a row is connected with first LED in next row (no alternating rows). It is most common LED layout on cheap modules available on allegro (find [here](https://allegro.pl/listing?string=8x8%20ws2812b)) or china markets ([here](https://aliexpress.com/w/wholesale-8x8-ws2812b.html)).
 
 Scrambled arrows or switched directions are common effects of incompatible LED layout on board but it can be fixed in the code (to be done in the future).
 
