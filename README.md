@@ -45,5 +45,5 @@ Currently, CareLight works with:
 * CareLink user account without 2-factor authentication enabled.
 
 ## Setup and Manual
-* Setup, programming manual process is explained [here](./Documents/Setup.md).
+* Setup and configuration process is explained [here](./Documents/Setup.md).
 * Short manual can be found [here](./Documents/Manual.md).
