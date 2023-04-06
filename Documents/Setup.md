@@ -37,4 +37,14 @@ Use three female to female DuPont wires to make connections:
 
 ## Setting up
 
-TBD
+Setting up all the parameters for CareLight is done through COM port. With Arduino IDE opened and CareLink board connected through USB: 
+1. Open the Serial Monitor (menu Tools/Serial Monitor) 
+2. Change connection speed to 115200 baud
+3. Click into the Message field
+4. Reset the board by pressing EN or RST button
+5. When the round CareLight logo is displayed on the LED board press Enter key to send empty message through COM port. It causes the board the Setup mode. If board is starting for the first time after programming it will enter Setup by default.
+6. Follow messages displayed in Serial Monitor and confirm every setting with Enter key. The default or current value of every setting will be used if no new value is provided (just press Enter). 
+7. When choosing colors, CareLight displays them and asks for confirmation. It is possible to try several colors before confirming the choosen one. 
+8. In case of entering wrong value reset the board and just start again from the beginning.
+
+After updating last parameter the device saves configuration in Flash and resets itself into normal working mode.
