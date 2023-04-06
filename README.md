@@ -1,4 +1,4 @@
-# CareLight
+# CareLight ([wersja polska](./README_pl.md))
 CareLight is a DIY project that provides a simple color LED indicator over WiFi for people with diabetes who use Medtronic's 740g/780g insulin pumps. It connects with Medtronic's CareLink cloud and downloads current glucose level data.
 
 This project is still in its early development stage, and I might not be aware of all existing constraints. The project has been tested on a 740G pump and a CareLink account created for a patient based in Poland. Any tests or issues reported for other configurations are highly appreciated.
