@@ -1,13 +1,13 @@
 # CareLight
 CareLight to wyświetlacz LED z obsługą WiFi do wskazywania bieżącego poziomu i trendu glukozy dla osób z cukrzycą korzystających z pomp insulinowych 740g/780g firmy Medtronic. Urządzenie łączy się z chmurą CareLink, z której pobierane są aktualne dane.
 
-Projekt jest wciąż w fazie wczesnego rozwoju i może istnieć więcej ograniczeń, których nie jestem świadomy. Urządzenie zostało przetestowane na pompie 740G i koncie CareLink stworzonym dla pacjenta w Polsce. Wszelkie testy i raportowane problemy związane z innymi konfiguracjami będą bardzo pomocne.
+Projekt jest w fazie wczesnego rozwoju i może istnieć wiele ograniczeń, których jeszcze nie znam. Urządzenie zostało przetestowane na pompie 740G i koncie CareLink stworzonym dla pacjenta w Polsce. Wszelkie testy i raportowane problemy związane z innymi konfiguracjami będą bardzo pomocne.
 
-Jest to mój projekt po godzinach, więc szybkie i dokładne wsparcie techniczne jest mało prawdopodobne, ale postaram się robić co w mojej mocy ;)
+Jest to mój projekt po godzinach, więc szybkie i profesjonalne wsparcie techniczne jest mało prawdopodobne, ale postaram się robić co w mojej mocy ;)
 
 ## Ostrzeżenie
 
-Ten projekt jest przeznaczony wyłącznie do celów edukacyjnych i informacyjnych. Nie jest zatwierdzony przez żadne organy medyczne (takie jak FDA, NFZ itp.). Nie jest odpowiednio przetestowany i nie powinien być używany do podejmowania jakichkolwiek decyzji dotyczących leczenia. Nie jest związany ani nie jest popierany przez firmę Medtronic i może naruszać jej warunki korzystania z usług. Korzystanie z tego kodu odbywa się bez gwarancji lub jakiejkolwiek formy wsparcia.
+Ten projekt jest przeznaczony wyłącznie do celów edukacyjnych i informacyjnych. Nie został zatwierdzony przez żadne organy medyczne (takie jak FDA, NFZ itp.). Nie jest odpowiednio przetestowany i nie powinien być używany do podejmowania jakichkolwiek decyzji dotyczących leczenia. Nie jest związany ani nie jest popierany przez firmę Medtronic i może naruszać jej warunki korzystania z usług. Korzystanie z tego kodu odbywa się bez gwarancji lub jakiejkolwiek formy wsparcia.
 
 ## Licencja
 
@@ -26,7 +26,7 @@ Ten projekt jest objęty licencją [GNU General Public License v3.0](./LICENSE.m
 
 ## Wymagania sprzętowe
 * Więcej informacji na temat używanego sprzętu można znaleźć [tutaj](./Documents/Hardware_pl.md).
-* Płytka kontrolera z chipem ESP32 WiFi/BT (najlepszy wybór - ESP-WROOM-32)
+* Płytka główna z chipem ESP32 WiFi/BT (najlepszy wybór - ESP-WROOM-32)
 * Płytka wyświetlacza z 8x8 diodami LED WS2812B
 
 ## Wymagania programowe dla programowania i konfiguracji:
@@ -35,7 +35,7 @@ Ten projekt jest objęty licencją [GNU General Public License v3.0](./LICENSE.m
   * FastLED library by Daniel Garcia >= v3.5
   * ArduinoJson library by Benoit Blanchon >= v6.21.1
   * StreamUtils library by Benoit Blanchon >= v1.7.3 (do usunięcia)
-* Sterowniki chipa USB-to-serial (odpowiednio do płytki kontrolera - CH340G, CP2102 lub inny) 
+* Sterowniki chipa USB-to-serial (odpowiednio do płytki głównej - CH340G, CP2102 lub inny) 
 
 ## Ograniczenia
 Obecnie CareLight działa z:
