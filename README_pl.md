@@ -3,11 +3,11 @@
 
 <img src="./Documents/Media/2.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
 
-CareLight to wyświetlacz LED z obsługą WiFi do wskazywania bieżącego poziomu i trendu glukozy dla osób z cukrzycą korzystających z pomp insulinowych 740g/780g firmy Medtronic. Urządzenie łączy się z chmurą CareLink, z której pobierane są aktualne dane.
+CareLight to wyświetlacz LED z obsługą WiFi do wskazywania bieżącego poziomu i trendu glukozy dla osób z cukrzycą, korzystających z pomp insulinowych 740g/780g firmy Medtronic. Urządzenie łączy się z chmurą CareLink, z której pobierane są aktualne dane. Do budowy wystarczą dwa tanie i łatwo dostępne moduły elektroniczne, więc nie powinno to sprawić zbyt dużego problemu.
 
 Projekt jest w fazie wczesnego rozwoju i może istnieć wiele ograniczeń, których jeszcze nie znam. Urządzenie zostało przetestowane na pompie 740G i koncie CareLink stworzonym dla pacjenta w Polsce. Wszelkie testy i raportowane problemy związane z innymi konfiguracjami będą bardzo pomocne.
 
-Jest to mój projekt po godzinach, więc szybkie i profesjonalne wsparcie techniczne jest mało prawdopodobne, ale postaram się robić co w mojej mocy ;)
+Jest to mój projekt DIY po godzinach, więc niestety nie mogę zagwarantować wsparcia ;)
 
 ## Ostrzeżenie
 
@@ -47,6 +47,7 @@ Obecnie CareLight działa z:
 * Jednostkami glukozy ustawionymi na mg/dL
 * Użytkownikami korzystającymi z serwerów europejskich CareLink (bez USA i Chin)
 * Kontami użytkowników CareLink bez włączonej autoryzacji dwuskładnikowej
+Istnieje również szansa, że firma Medtronic zmieni w przyszłości sposób dostępu do danych pomiarowych, a projekt przestanie z tego powodu działać. Nie mogę zagwarantować, że będę w stanie przywrócić go do życia.
 
 ## Konfiguracja i instrukcja obsługi
 * Proces konfiguracji i programowania jest opisany [tutaj](./Documents/Setup_pl.md).
