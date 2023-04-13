@@ -1,4 +1,4 @@
-# Hardware
+# Hardware ([wersja polska](./Hardware_pl.md))
 
 ## Main board
 
