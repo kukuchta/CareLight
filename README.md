@@ -1,5 +1,7 @@
 # CareLight ([wersja polska](./README_pl.md))
-<img src="./Documents/Media/L.jpg" width="15%" height="15%"> <img src="./Documents/Media/1.jpg" width="15%" height="15%"> <img src="./Documents/Media/6.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
+<img src="./Documents/Media/1.jpg" width="15%" height="15%"> <img src="./Documents/Media/6.jpg" width="15%" height="15%"> <img src="./Documents/Media/7.jpg" width="15%" height="15%"> <img src="./Documents/Media/8.jpg" width="15%" height="15%">
+
+<img src="./Documents/Media/2.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
 
 CareLight is a DIY project that provides a simple color LED indicator over WiFi for people with diabetes who use Medtronic's 740g/780g insulin pumps. It connects with Medtronic's CareLink cloud and downloads current glucose level data.
 
