@@ -56,6 +56,8 @@ void setup()
   display.Init();
   clClient.Init();
   config.Init(display);
+
+  lastSgDatetimeChange = millis();
 }
 
 void loop() 
@@ -68,8 +70,8 @@ void loop()
     display.GreenError();
     display.Update();
     previousTime = 0;
-    lastSgDatetime = 0;
-    lastSgDatetimeChange = millis();
+    //lastSgDatetime = 0;
+    //lastSgDatetimeChange = millis();  //Not sure
     newConnection = true;    
   }  
 
@@ -80,11 +82,21 @@ void loop()
     if (currentDataReceived)
     {
       PrintCareLinkData();
+
       if (clClient.currentSgDatetime != lastSgDatetime || isAfterError) 
       {
-        // There is data to check (Sg timestamp changed or recovery after errors)
-        Serial.println("  Updating display");
-        DisplayCareLinkData();        
+        if (clClient.currentSg == 0 && lastSg == 0)
+        {
+          // Carelight started while pump does not provide new data
+          Serial.println("  Stale data after startup");
+          display.BlueError();        
+        } 
+        else 
+        {
+          // There is data to check (Sg timestamp changed or recovery after errors)
+          Serial.println("  Updating display");
+          DisplayCareLinkData(); 
+        }       
         
         if (clClient.currentSg != 0) 
         {
