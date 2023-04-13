@@ -15,7 +15,8 @@ Przy pomocy trzech żeńskich przewodów DuPont połącz:
   * Otwórz menu Start, znajdź i uruchom Menadżer Urządzeń
   * Szukaj w sekcji Porty (COM i LPT) pozycji:
   
-    ![Device manager](./Media/DevMan.png "Device manager")
+    <img src="./Media/DevMan.png" width="30%" height="30%">
+    
   * Jeśli jest obecna, zapisz numer portu COM i przejdź do kolejnego kroku. Jeśli zamiast niej pojawi się nieznane urządzenie, należy pobrać i zainstalować sterownik "CP210x Universal Windows Driver" ze strony Silabs [tutaj](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads) i ponownie podłączyć płytę przez USB. 
 2. Pobierz i zainstaluj Arduino IDE w wersji przynajmniej 2.0.4 [tutaj](https://www.arduino.cc/en/software).
 3. Zainstaluj wsparcie dla płytek ESP32 Arduino Core, jak opisano [tutaj](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html).
@@ -25,12 +26,12 @@ Przy pomocy trzech żeńskich przewodów DuPont połącz:
   * StreamUtils by Benoit Blanchon v1.7.3
 5. Pobierz kod źródłowy CareLight:
 
-    ![Get source](./Media/GetSource.png "Get source")
+    <img src="./Media/GetSource.png" width="25%" height="25%">
     
 6. Otwórz plik CareLink.ino w Arduino IDE
 7. Ustaw poniższe parametry w menu Narzędzia:
 
-    ![Params](./Media/Params.png "Params")
+    <img src="./Media/Params.png" width="25%" height="25%">
     
   Port powinien być zgodny z numerem portu COM znalezionym wcześniej w Menadżerze Urządzeń.
 8. Kliknij przycisk Upload żeby skompilować i załadować program na płytkę.
