@@ -51,3 +51,6 @@ Currently, CareLight works with:
 ## Setup and Manual
 * Setup and configuration process is explained [here](./Documents/Setup.md).
 * Short manual can be found [here](./Documents/Manual.md).
+
+## Support
+If you think that my work is valuable, you can always [support my daughter](https://dzieciom.pl/podopieczni/41721) (she also has T1D) or directly support my work with a [virtual coffee](https://buycoffee.to/carelight) ;)
