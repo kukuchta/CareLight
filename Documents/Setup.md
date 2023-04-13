@@ -1,4 +1,4 @@
-# Setup
+# Setup and configuration
 There are several steps to setup working CareLight. They will be described for ESP-WROOM-32 main board as it requires least effort.
 
 ## Hardware assembly
@@ -35,7 +35,7 @@ Use three female to female DuPont wires to make connections:
   Where Port should be the COM port number fonund earlier in the Windows Device Manager.
 8. Hit upload button.
 
-## Setting up
+## Configuration
 
 Setting up all the parameters for CareLight is done through COM port. With Arduino IDE opened and CareLink board connected through USB: 
 1. Open the Serial Monitor (menu Tools/Serial Monitor) 
