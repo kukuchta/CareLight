@@ -1,5 +1,5 @@
 # CareLight
-<img src="./Documents/Media/L.jpg" width="15%" height="15%"> <img src="./Documents/Media/1.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
+<img src="./Documents/Media/L.jpg" width="15%" height="15%"> <img src="./Documents/Media/1.jpg" width="15%" height="15%"> <img src="./Documents/Media/6.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
 
 CareLight to wyświetlacz LED z obsługą WiFi do wskazywania bieżącego poziomu i trendu glukozy dla osób z cukrzycą korzystających z pomp insulinowych 740g/780g firmy Medtronic. Urządzenie łączy się z chmurą CareLink, z której pobierane są aktualne dane.
 
