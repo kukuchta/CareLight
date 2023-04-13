@@ -51,3 +51,6 @@ Obecnie CareLight działa z:
 ## Konfiguracja i instrukcja obsługi
 * Proces konfiguracji i programowania jest opisany [tutaj](./Documents/Setup_pl.md).
 * Krótka instrukcja obsługi znajduje się [tutaj](./Documents/Manual_pl.md).
+
+## Wsparcie
+Jeśli uważasz, że moja praca jest dla Ciebie choć trochę przydatna, zawsze możesz symbolicznie [wesprzeć moją córkę](https://dzieciom.pl/podopieczni/41721) (też choruje na CT1) albo bezpośrednio wesprzeć moją pracę stawiając [wirtualną kawę](https://buycoffee.to/carelight) ;)
