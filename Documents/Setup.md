@@ -15,7 +15,8 @@ Use three female to female DuPont wires to make connections:
   * Find in menu Start and open the Device Manager
   * Look under Ports (COM & LPT) for:
   
-    ![Device manager](./Media/DevMan.png "Device manager")
+    <img src="./Media/DevMan.png" width="30%" height="30%">
+    
   * If it is there, then go to next step. If there is an unrecognized device, you should download and install "CP210x Universal Windows Driver" from Silabs page [here](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers?tab=downloads), and reconnect the board to USB.
 2. Download and install Arduino IDE version at least 2.0.4 from [here](https://www.arduino.cc/en/software).
 3. Install ESP32 Arduino Core boards support as explained [here](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html).
@@ -25,12 +26,12 @@ Use three female to female DuPont wires to make connections:
   * StreamUtils by Benoit Blanchon v1.7.3
 5. Download CareLight source code from this repository:
 
-    ![Get source](./Media/GetSource.png "Get source")
+    <img src="./Media/GetSource.png" width="25%" height="25%">
     
 6. Open CareLink.ino with Arduino IDE
 7. Setup following parameters under Tools menu:
 
-    ![Params](./Media/Params.png "Params")
+    <img src="./Media/Params.png" width="25%" height="25%">
     
   Where Port should be the COM port number fonund earlier in the Windows Device Manager.
 8. Hit upload button.
