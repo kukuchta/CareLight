@@ -47,6 +47,7 @@ Obecnie CareLight działa z:
 * Jednostkami glukozy ustawionymi na mg/dL
 * Użytkownikami korzystającymi z serwerów europejskich CareLink (bez USA i Chin)
 * Kontami użytkowników CareLink bez włączonej autoryzacji dwuskładnikowej
+
 Istnieje również szansa, że firma Medtronic zmieni w przyszłości sposób dostępu do danych pomiarowych, a projekt przestanie z tego powodu działać. Nie mogę zagwarantować, że będę w stanie przywrócić go do życia.
 
 ## Konfiguracja i instrukcja obsługi
