@@ -120,7 +120,7 @@ bool CareLinkClient::GetLoginPage(void) {
 
 bool CareLinkClient::SubmitLogin(void) {
   Serial.print("  Submit login: ");
-  String url = "https://mdtlogin.medtronic.com/mmcl/auth/oauth/v2/authorize/login?locale=en&country=";
+  String url = "https://mdtlogin-ocl.medtronic.com/mmcl/auth/oauth/v2/authorize/login?locale=en&country=";
   url += config.careLinkCountry.c_str();
   if (https.begin(*client, url)) {
     https.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
