@@ -1,11 +1,13 @@
 # CareLight ([wersja polska](./README_pl.md))
-<img src="./Documents/Media/L.jpg" width="15%" height="15%"> <img src="./Documents/Media/1.jpg" width="15%" height="15%"> <img src="./Documents/Media/6.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
+<img src="./Documents/Media/1.jpg" width="15%" height="15%"> <img src="./Documents/Media/6.jpg" width="15%" height="15%"> <img src="./Documents/Media/7.jpg" width="15%" height="15%"> <img src="./Documents/Media/8.jpg" width="15%" height="15%">
 
-CareLight is a DIY project that provides a simple color LED indicator over WiFi for people with diabetes who use Medtronic's 740g/780g insulin pumps. It connects with Medtronic's CareLink cloud and downloads current glucose level data.
+<img src="./Documents/Media/2.jpg" width="15%" height="15%"> <img src="./Documents/Media/3.jpg" width="15%" height="15%"> <img src="./Documents/Media/4.jpg" width="15%" height="15%"> <img src="./Documents/Media/5.jpg" width="15%" height="15%">
+
+CareLight is a DIY project that provides a simple color LED indicator over WiFi for people with diabetes who use Medtronic's 740g/780g insulin pumps. It connects with Medtronic's CareLink cloud and downloads current glucose level data. To build it, there are only two cheap modules needed, so it should not be too problematic.
 
 This project is still in its early development stage, and I might not be aware of all existing constraints. The project has been tested on a 740G pump and a CareLink account created for a patient based in Poland. Any tests or issues reported for other configurations are highly appreciated.
 
-It's my free-time hobby project, so quick and extensive support is rather unlikely, but I'll try my best ;)
+It's my free-time hobby project, so I cannot guarantee any support ;)
 
 ## Disclaimer and Warning
 
@@ -46,6 +48,11 @@ Currently, CareLight works with:
 * Users based on European CareLink servers (no US, and no China servers)
 * CareLink user account without 2-factor authentication enabled.
 
+There is a chance, that in the future Medtronic will change way in which all the data is provided, snd the project will stop working. I cannot guarantee that I will be able to bring it back to life.
+
 ## Setup and Manual
 * Setup and configuration process is explained [here](./Documents/Setup.md).
 * Short manual can be found [here](./Documents/Manual.md).
+
+## Support
+If you think that my work is valuable, you can always [support my daughter](https://dzieciom.pl/podopieczni/41721) (she also has T1D) or directly support my work with a [virtual coffee](https://buycoffee.to/carelight) ;)
